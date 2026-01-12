@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"path": "./"
+		},
+		{
+			"path": "../Community-Patch-DLL/CvGameCoreDLL_Expansion2"
+		},
+				{
+			"path": "../Community-Patch-DLL/(1) Community Patch"
+		},
+		{
+			"path": "../Community-Patch-DLL/(2) Vox Populi"
+		},
+
+		{
+			"path": "../wtapc-org/src/routes/calculator"
+		}
+	],
+	"settings": {}
+}
