@@ -29,6 +29,7 @@
 	} from '$lib/utils/hurry-modifiers';
 	import civilopediaData from '$lib/data/civilopedia_export.json';
 	import type { Unit, Building, Technology } from '$lib/types/civilopedia';
+	import { buildUpgradeChains, type UpgradeChain, type CombatUnitData } from '$lib/utils/unit-upgrade-chains';
 
 	// =============================================================================
 	// TYPES
@@ -95,7 +96,7 @@
 	let initialized = $state(false);
 
 	// Dropdown for graph selection
-	type GraphMode = 'gold-vs-production' | 'ratio-vs-gridx';
+	type GraphMode = 'gold-vs-production' | 'ratio-vs-gridx' | 'combat-efficiency';
 	let graphMode: GraphMode = $state('ratio-vs-gridx');
 
 	// Hurry modifier toggles
@@ -380,6 +381,155 @@
 	}
 
 	const militaryXPByGridX = buildMilitaryXPByGridX();
+
+	// =============================================================================
+	// COMBAT EFFICIENCY DATA
+	// =============================================================================
+
+	const allUnits = (civilopediaData as { units: Unit[] }).units;
+	const upgradeChains = buildUpgradeChains(allUnits);
+
+	/**
+	 * Editable unit overrides: map from unit Type to overridden values.
+	 * When a user edits a cell in the table, the override is stored here
+	 * and the graph recomputes using the overridden values.
+	 */
+	let unitOverrides = $state(new Map<string, { combat?: number; rangedCombat?: number; productionCost?: number }>());
+
+	/** Reactive counter to force graph updates when overrides change */
+	let overrideVersion = $state(0);
+
+	function getEffectiveUnit(unit: CombatUnitData): { combat: number; rangedCombat: number; productionCost: number; primaryStrength: number } {
+		const override = unitOverrides.get(unit.type);
+		const combat = override?.combat ?? unit.combat;
+		const rangedCombat = override?.rangedCombat ?? unit.rangedCombat;
+		const productionCost = override?.productionCost ?? unit.productionCost;
+		return {
+			combat,
+			rangedCombat,
+			productionCost,
+			primaryStrength: Math.max(combat, rangedCombat)
+		};
+	}
+
+	function setUnitOverride(unitType: string, field: 'combat' | 'rangedCombat' | 'productionCost', value: number) {
+		const existing = unitOverrides.get(unitType) ?? {};
+		existing[field] = value;
+		unitOverrides.set(unitType, existing);
+		unitOverrides = new Map(unitOverrides);
+		overrideVersion++;
+	}
+
+	function resetOverrides() {
+		unitOverrides = new Map();
+		overrideVersion++;
+	}
+
+	/**
+	 * Build Plotly traces for combat efficiency (primary strength / production cost)
+	 * vs Tech GridX. Each upgrade chain is a separate trace.
+	 */
+	function buildCombatEfficiencyPlotData() {
+		const traces: Plotly.Data[] = [];
+
+		for (let i = 0; i < upgradeChains.length; i++) {
+			const chain = upgradeChains[i];
+			const color = colour_set[i % colour_set.length];
+
+			const xs: number[] = [];
+			const ys: number[] = [];
+			const labels: string[] = [];
+			const hoverTexts: string[] = [];
+
+			for (const unit of chain.units) {
+				const eff = getEffectiveUnit(unit);
+				const gridX = getGridXFromPrereqTech(techProgressData, 
+					allUnits.find(u => u.Type === unit.type)?.PrereqTech);
+				const ratio = eff.productionCost > 0 ? eff.primaryStrength / eff.productionCost : 0;
+
+				xs.push(gridX);
+				ys.push(ratio);
+				labels.push(unit.name);
+				hoverTexts.push(
+					`CS: ${eff.combat}` +
+					(eff.rangedCombat > 0 ? ` | RCS: ${eff.rangedCombat}` : '') +
+					` | Cost: ${eff.productionCost}` +
+					` | Era: ${unit.eraName}`
+				);
+			}
+
+			// Line trace
+			traces.push({
+				type: 'scatter',
+				mode: 'lines',
+				name: chain.name,
+				x: xs,
+				y: ys,
+				line: { color, width: 2 },
+				hoverinfo: 'skip',
+				showlegend: true,
+				legendgroup: chain.name
+			});
+
+			// Marker + label trace
+			traces.push({
+				type: 'scatter',
+				mode: 'text+markers',
+				name: chain.name,
+				x: xs,
+				y: ys,
+				text: labels,
+				textposition: 'top center',
+				textfont: { size: 10 },
+				marker: {
+					size: 8,
+					color,
+					symbol: 'circle',
+					line: { width: 1, color: 'rgba(250, 250, 196, 0.6)' }
+				},
+				customdata: hoverTexts,
+				hovertemplate: '<b>%{text}</b><br>Strength/Cost: %{y:.4f}<br>%{customdata}<extra>' + chain.name + '</extra>',
+				showlegend: false,
+				legendgroup: chain.name
+			});
+		}
+
+		const layout: Partial<Plotly.Layout> = {
+			title: {
+				text: 'Combat Strength / Production Cost vs Tech Column',
+				font: { family: 'Tw Cen MT, sans-serif', size: 19, color: 'rgba(250, 250, 196, 1)' }
+			},
+			font: { family: 'Tw Cen MT, sans-serif', color: 'rgba(250, 250, 196, 1)' },
+			paper_bgcolor: '#070b0eff',
+			plot_bgcolor: '#070b0eff',
+			margin: { l: 70, r: 30, t: 80, b: 60 },
+			xaxis: {
+				title: { text: 'Tech Column (GridX)', font: { size: 16 } },
+				gridcolor: 'rgba(100, 100, 100, 0.3)',
+				zerolinecolor: 'rgba(207, 175, 115, 0.8)',
+				tickfont: { size: 14 },
+				dtick: 1
+			},
+			yaxis: {
+				title: { text: 'Primary Strength / Production Cost', font: { size: 16 } },
+				gridcolor: 'rgba(100, 100, 100, 0.3)',
+				zerolinecolor: 'rgba(207, 175, 115, 0.8)',
+				tickfont: { size: 14 }
+			},
+			hovermode: 'closest',
+			legend: {
+				x: 0.73,
+				y: 1,
+				bordercolor: 'rgba(207, 175, 115, 1)',
+				borderwidth: 1,
+				font: { size: 13 }
+			},
+			showlegend: true,
+			dragmode: 'pan'
+		};
+
+		return { traces, layout };
+	}
 
 	// =============================================================================
 	// GRAPH COMPUTATION
@@ -964,14 +1114,15 @@
 		modeBarButtonsToRemove: ['lasso2d', 'select2d']
 	};
 
+	function getPlotDataForMode() {
+		if (graphMode === 'gold-vs-production') return buildPlotData();
+		if (graphMode === 'combat-efficiency') return buildCombatEfficiencyPlotData();
+		return buildRatioVsGridXPlotData();
+	}
+
 	const throttledUpdate = createThrottle(() => {
 		if (!plotDiv || !initialized) return;
-		let traces, layout;
-		if (graphMode === 'gold-vs-production') {
-			({ traces, layout } = buildPlotData());
-		} else {
-			({ traces, layout } = buildRatioVsGridXPlotData());
-		}
+		const { traces, layout } = getPlotDataForMode();
 		Plotly.react(plotDiv, traces, layout, plotlyConfig);
 	}, 16);
 
@@ -985,6 +1136,7 @@
 		graphMode;
 		upgradeCoefficient;
 		upgradeConstant;
+		overrideVersion;
 		throttledUpdate();
 	});
 
@@ -992,33 +1144,30 @@
 	$effect(() => {
 		if (plotDiv && !initialized) {
 			initialized = true;
-			let traces, layout;
-			if (graphMode === 'gold-vs-production') {
-				({ traces, layout } = buildPlotData());
-			} else {
-				({ traces, layout } = buildRatioVsGridXPlotData());
-			}
+			const { traces, layout } = getPlotDataForMode();
 			Plotly.newPlot(plotDiv, traces, layout, plotlyConfig);
 		}
 	});
 </script>
 
 <svelte:head>
-	<title>Gold Purchase Cost - VP Mechanics Visualizer</title>
+	<title>VP Mechanics Visualizer</title>
 </svelte:head>
 
 <div class="page-container">
 	<!-- Left Panel: Controls -->
 
-	<div class="control-panel">
+	<div class="control-panel" class:wide-panel={graphMode === 'combat-efficiency'}>
 <div class="graph-mode-section">
 		<label for="graph-mode-select" class="graph-mode-label">Graph Selection:</label>
 		<select id="graph-mode-select" bind:value={graphMode} class="graph-mode-select">
 				<option value="gold-vs-production">Gold Cost vs Production</option>
 				<option value="ratio-vs-gridx">Gold/Production Ratio vs Tech Column</option>
+				<option value="combat-efficiency">Combat Strength / Cost Efficiency</option>
 			</select>
 		</div>
 
+{#if graphMode !== 'combat-efficiency'}
 		<div class="display-options" style="margin-bottom: 1rem;">
 			<h3>Display Options</h3>
 			<label class="checkbox-label">
@@ -1226,6 +1375,96 @@
 				<em>Note:</em> These modifiers affect both units and buildings. Buildings also have a base -20% modifier (wonders: -5%).
 			</p>
 		</div>
+{/if}
+
+{#if graphMode === 'combat-efficiency'}
+		<h2>Combat Efficiency</h2>
+
+		<div class="info-section">
+			<h3>About This Graph</h3>
+			<p>
+				Shows the <strong style="color: #ff6b6b">primary combat strength / production cost</strong> ratio
+				for each unit along its upgrade line. Higher ratio = more strength per hammer.
+			</p>
+			<p style="font-size: 0.85rem; margin-top: 0.5rem;">
+				Primary strength = max(Combat, RangedCombat). Edit values below to experiment.
+			</p>
+		</div>
+
+		<div class="combat-table-controls">
+			<button class="reset-button" onclick={resetOverrides}>
+				Reset All to Default
+			</button>
+		</div>
+
+		<div class="combat-table-container">
+			{#each upgradeChains as chain, chainIdx}
+				<div class="chain-section">
+					<h3 class="chain-header" style="color: {colour_set[chainIdx % colour_set.length]}">
+						{chain.name}
+					</h3>
+					<table class="combat-table">
+						<thead>
+							<tr>
+								<th class="th-name">Unit</th>
+								<th class="th-stat">CS</th>
+								<th class="th-stat">RCS</th>
+								<th class="th-cost">Cost</th>
+								<th class="th-ratio">Ratio</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each chain.units as unit}
+								{@const eff = getEffectiveUnit(unit)}
+								{@const ratio = eff.productionCost > 0 ? eff.primaryStrength / eff.productionCost : 0}
+								{@const hasOverride = unitOverrides.has(unit.type)}
+								<tr class:edited={hasOverride}>
+									<td class="td-name" title={unit.type}>{unit.name}</td>
+									<td class="td-stat">
+										<input
+											type="number"
+											class="stat-input"
+											value={eff.combat}
+											min="0"
+											oninput={(e) => {
+												const val = parseInt(e.currentTarget.value);
+												if (!isNaN(val) && val >= 0) setUnitOverride(unit.type, 'combat', val);
+											}}
+										/>
+									</td>
+									<td class="td-stat">
+										<input
+											type="number"
+											class="stat-input"
+											value={eff.rangedCombat}
+											min="0"
+											oninput={(e) => {
+												const val = parseInt(e.currentTarget.value);
+												if (!isNaN(val) && val >= 0) setUnitOverride(unit.type, 'rangedCombat', val);
+											}}
+										/>
+									</td>
+									<td class="td-cost">
+										<input
+											type="number"
+											class="stat-input cost-input"
+											value={eff.productionCost}
+											min="1"
+											oninput={(e) => {
+												const val = parseInt(e.currentTarget.value);
+												if (!isNaN(val) && val > 0) setUnitOverride(unit.type, 'productionCost', val);
+											}}
+										/>
+									</td>
+									<td class="td-ratio">{ratio.toFixed(4)}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/each}
+		</div>
+{/if}
 	</div>
 
 	<!-- Right Panel: Graph -->
@@ -1302,6 +1541,12 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.5rem;
+		transition: width 0.2s ease;
+	}
+
+	.control-panel.wide-panel {
+		width: 420px;
+		min-width: 380px;
 	}
 
 	.control-panel h2 {
@@ -1593,5 +1838,123 @@
 
 	:global(.plot-container .main-svg) {
 		background: transparent !important;
+	}
+
+	/* Combat Efficiency Table */
+	.combat-table-controls {
+		margin-bottom: 0.75rem;
+	}
+
+	.combat-table-container {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.chain-section {
+		border: 1px solid rgba(207, 175, 115, 0.5);
+		padding: 0.5rem;
+	}
+
+	.chain-header {
+		margin: 0 0 0.5rem 0;
+		font-size: 0.95rem;
+		font-weight: 600;
+	}
+
+	.combat-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.8rem;
+	}
+
+	.combat-table th {
+		text-align: center;
+		padding: 0.3rem 0.2rem;
+		border-bottom: 1px solid rgba(207, 175, 115, 0.6);
+		color: #ffc864;
+		font-weight: 600;
+		font-size: 0.75rem;
+	}
+
+	.th-name {
+		text-align: left !important;
+		width: 40%;
+	}
+
+	.th-stat {
+		width: 14%;
+	}
+
+	.th-cost {
+		width: 18%;
+	}
+
+	.th-ratio {
+		width: 14%;
+	}
+
+	.combat-table td {
+		padding: 0.2rem 0.15rem;
+		border-bottom: 1px solid rgba(100, 100, 150, 0.15);
+		vertical-align: middle;
+	}
+
+	.td-name {
+		font-size: 0.78rem;
+		color: rgba(250, 250, 196, 0.9);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 0;
+	}
+
+	.td-stat, .td-cost {
+		text-align: center;
+	}
+
+	.td-ratio {
+		text-align: center;
+		color: #64c864;
+		font-family: 'Consolas', monospace;
+		font-size: 0.75rem;
+	}
+
+	.stat-input {
+		width: 100%;
+		max-width: 52px;
+		padding: 0.15rem 0.2rem;
+		background-color: rgba(100, 100, 150, 0.2);
+		border: 1px solid rgba(207, 175, 115, 0.3);
+		color: rgba(250, 250, 196, 1);
+		font-family: 'Consolas', monospace;
+		font-size: 0.78rem;
+		text-align: center;
+		outline: none;
+		-moz-appearance: textfield;
+		appearance: textfield;
+	}
+
+	.stat-input::-webkit-outer-spin-button,
+	.stat-input::-webkit-inner-spin-button {
+		-webkit-appearance: none;
+		margin: 0;
+	}
+
+	.stat-input:focus {
+		border-color: #4a9eff;
+		background-color: rgba(100, 100, 150, 0.35);
+	}
+
+	.cost-input {
+		max-width: 58px;
+	}
+
+	tr.edited {
+		background-color: rgba(230, 205, 26, 0.08);
+	}
+
+	tr.edited .td-name {
+		color: #e6cd1a;
 	}
 </style>

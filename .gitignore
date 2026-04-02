@@ -27,3 +27,5 @@ vite.config.ts.timestamp-*
 /(1) Community Patch/
 /(2) Vox Populi/
 /calculator/
+
+/.github/docs
