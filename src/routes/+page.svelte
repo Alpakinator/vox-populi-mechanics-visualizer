@@ -416,6 +416,36 @@
 	const upgradeChains = buildUpgradeChains(allUnits);
 	const rawUnitByType = new Map(allUnits.map((u) => [u.Type, u]));
 
+	// Unique units (civilization-specific or policy-granted) for combat efficiency overlay
+	const uniqueCombatUnits: CombatUnitData[] = allUnits
+		.filter((u) => {
+			const isUnique = u.Replaces && Array.isArray(u.Replaces) && u.Replaces.length > 0;
+			if (!isUnique) return false;
+			const combat = u.Combat ?? 0;
+			const rangedCombat = u.RangedCombat ?? 0;
+			if (combat === 0 && rangedCombat === 0) return false;
+			const costs = parseCostFromHelp(u.Help);
+			if (!costs) return false;
+			return true;
+		})
+		.map((u) => {
+			const costs = parseCostFromHelp(u.Help)!;
+			const combat = u.Combat ?? 0;
+			const rangedCombat = u.RangedCombat ?? 0;
+			return {
+				type: u.Type,
+				name: stripColorTags(u.Name),
+				unitClass: u.Class,
+				combat,
+				rangedCombat,
+				productionCost: costs.production,
+				domain: u.Domain,
+				eraId: u.EraID,
+				eraName: u.EraName,
+				primaryStrength: rangedCombat > 0 ? rangedCombat : combat
+			};
+		});
+
 	const MELEE_CLASSES = new Set([
 		'UNITCLASS_WARRIOR',
 		'UNITCLASS_SPEARMAN',
@@ -770,6 +800,53 @@
 				hovertemplate: '<b>%{text}</b><br>Strength/Cost: %{y:.4f}<br>%{customdata}<extra>' + chain.name + '</extra>',
 				showlegend: false,
 				legendgroup: chain.name
+			});
+		}
+
+		// --- UNIQUE UNITS TRACE ---
+		{
+			const uxs: number[] = [];
+			const uys: number[] = [];
+			const ulabels: string[] = [];
+			const uhoverTexts: string[] = [];
+
+			for (const unit of uniqueCombatUnits) {
+				const rawUnit = rawUnitByType.get(unit.type);
+				if (!rawUnit) continue;
+				const eff = getEffectiveUnit(unit);
+				const gridX = getGridXFromPrereqTech(techProgressData, rawUnit.PrereqTech);
+				const ratio = eff.effectiveProductionCost > 0 ? eff.primaryStrength / eff.effectiveProductionCost : 0;
+
+				uxs.push(gridX);
+				uys.push(ratio);
+				ulabels.push(unit.name);
+				uhoverTexts.push(
+					`CS: ${eff.combat}` +
+					(eff.rangedCombat > 0 ? ` | RCS: ${eff.rangedCombat}` : '') +
+					` | Cost: ${eff.productionCost}` +
+					` | Mod: +${eff.productionModifierPercent}%` +
+					` | Effective Cost: ${eff.effectiveProductionCost.toFixed(1)}` +
+					` | Era: ${unit.eraName}`
+				);
+			}
+
+			traces.push({
+				type: 'scatter',
+				mode: 'markers',
+				name: 'Unique Units',
+				x: uxs,
+				y: uys,
+				text: ulabels,
+				marker: {
+					size: 7,
+					color: 'rgba(180, 180, 180, 0.6)',
+					symbol: 'diamond',
+					line: { width: 1, color: 'rgba(250, 250, 196, 0.4)' }
+				},
+				customdata: uhoverTexts,
+				hovertemplate: '<b>%{text}</b><br>Strength/Cost: %{y:.4f}<br>%{customdata}<extra>Unique Unit</extra>',
+				showlegend: true,
+				visible: 'legendonly'
 			});
 		}
 
@@ -1410,7 +1487,7 @@
 		const { traces, layout } = getPlotDataForMode();
 
 		// Preserve legend visibility state from current plot
-		const currentData = (plotDiv as any).data as Plotly.Data[] | undefined;
+		const currentData = (plotDiv as any).data as Array<Record<string, any>> | undefined;
 		if (currentData) {
 			const visibilityByName = new Map<string, boolean | 'legendonly'>();
 			for (const t of currentData) {
