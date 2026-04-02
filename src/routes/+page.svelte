@@ -121,6 +121,10 @@
 	type GraphMode = 'gold-vs-production' | 'ratio-vs-gridx' | 'combat-efficiency';
 	let graphMode: GraphMode = $state('combat-efficiency');
 
+	// Combat efficiency sub-mode toggle
+	type CombatSubMode = 'ratio-vs-gridx' | 'strength-vs-cost';
+	let combatSubMode: CombatSubMode = $state('ratio-vs-gridx');
+
 	// Hurry modifier toggles
 	let enabledHurryModifiers = $state(new Set<string>());
 	let enableIndustryPolicies = $state(false);
@@ -733,10 +737,12 @@
 	}
 
 	/**
-	 * Build Plotly traces for combat efficiency (primary strength / production cost)
-	 * vs Tech GridX. Each upgrade chain is a separate trace.
+	 * Build Plotly traces for combat efficiency. Supports two sub-modes:
+	 * - 'ratio-vs-gridx': X = Tech GridX, Y = primaryStrength / effectiveProductionCost
+	 * - 'strength-vs-cost': X = effectiveProductionCost, Y = primaryStrength
 	 */
 	function buildCombatEfficiencyPlotData() {
+		const isStrengthVsCost = combatSubMode === 'strength-vs-cost';
 		const traces: Plotly.Data[] = [];
 
 		for (let i = 0; i < upgradeChains.length; i++) {
@@ -750,12 +756,18 @@
 
 			for (const unit of chain.units) {
 				const eff = getEffectiveUnit(unit);
-				const gridX = getGridXFromPrereqTech(techProgressData, 
-					allUnits.find(u => u.Type === unit.type)?.PrereqTech);
-				const ratio = eff.effectiveProductionCost > 0 ? eff.primaryStrength / eff.effectiveProductionCost : 0;
 
-				xs.push(gridX);
-				ys.push(ratio);
+				if (isStrengthVsCost) {
+					xs.push(eff.effectiveProductionCost);
+					ys.push(eff.primaryStrength);
+				} else {
+					const gridX = getGridXFromPrereqTech(techProgressData, 
+						allUnits.find(u => u.Type === unit.type)?.PrereqTech);
+					const ratio = eff.effectiveProductionCost > 0 ? eff.primaryStrength / eff.effectiveProductionCost : 0;
+					xs.push(gridX);
+					ys.push(ratio);
+				}
+
 				labels.push(unit.name);
 				hoverTexts.push(
 					`CS: ${eff.combat}` +
@@ -797,7 +809,9 @@
 					line: { width: 1, color: 'rgba(250, 250, 196, 0.6)' }
 				},
 				customdata: hoverTexts,
-				hovertemplate: '<b>%{text}</b><br>Strength/Cost: %{y:.4f}<br>%{customdata}<extra>' + chain.name + '</extra>',
+				hovertemplate: isStrengthVsCost
+					? '<b>%{text}</b><br>Strength: %{y}<br>Eff. Cost: %{x:.1f}<br>%{customdata}<extra>' + chain.name + '</extra>'
+					: '<b>%{text}</b><br>Strength/Cost: %{y:.4f}<br>%{customdata}<extra>' + chain.name + '</extra>',
 				showlegend: false,
 				legendgroup: chain.name
 			});
@@ -814,11 +828,17 @@
 				const rawUnit = rawUnitByType.get(unit.type);
 				if (!rawUnit) continue;
 				const eff = getEffectiveUnit(unit);
-				const gridX = getGridXFromPrereqTech(techProgressData, rawUnit.PrereqTech);
-				const ratio = eff.effectiveProductionCost > 0 ? eff.primaryStrength / eff.effectiveProductionCost : 0;
 
-				uxs.push(gridX);
-				uys.push(ratio);
+				if (isStrengthVsCost) {
+					uxs.push(eff.effectiveProductionCost);
+					uys.push(eff.primaryStrength);
+				} else {
+					const gridX = getGridXFromPrereqTech(techProgressData, rawUnit.PrereqTech);
+					const ratio = eff.effectiveProductionCost > 0 ? eff.primaryStrength / eff.effectiveProductionCost : 0;
+					uxs.push(gridX);
+					uys.push(ratio);
+				}
+
 				ulabels.push(unit.name);
 				uhoverTexts.push(
 					`CS: ${eff.combat}` +
@@ -844,7 +864,9 @@
 					line: { width: 1, color: 'rgba(250, 250, 196, 0.4)' }
 				},
 				customdata: uhoverTexts,
-				hovertemplate: '<b>%{text}</b><br>Strength/Cost: %{y:.4f}<br>%{customdata}<extra>Unique Unit</extra>',
+				hovertemplate: isStrengthVsCost
+					? '<b>%{text}</b><br>Strength: %{y}<br>Eff. Cost: %{x:.1f}<br>%{customdata}<extra>Unique Unit</extra>'
+					: '<b>%{text}</b><br>Strength/Cost: %{y:.4f}<br>%{customdata}<extra>Unique Unit</extra>',
 				showlegend: true,
 				visible: 'legendonly'
 			});
@@ -853,7 +875,9 @@
 		const layout: Partial<Plotly.Layout> = {
 			autosize: true,
 			title: {
-				text: 'Combat Strength / Production Cost vs Tech Column',
+				text: isStrengthVsCost
+					? 'Combat Strength vs Effective Production Cost'
+					: 'Combat Strength / Production Cost vs Tech Column',
 				font: { family: 'Tw Cen MT, sans-serif', size: 19, color: 'rgba(250, 250, 196, 1)' }
 			},
 			font: { family: 'Tw Cen MT, sans-serif', color: 'rgba(250, 250, 196, 1)' },
@@ -861,14 +885,14 @@
 			plot_bgcolor: '#070b0eff',
 			margin: { l: 70, r: 30, t: 80, b: 60 },
 			xaxis: {
-				title: { text: 'Tech Column (GridX)', font: { size: 16 } },
+				title: { text: isStrengthVsCost ? 'Effective Production Cost' : 'Tech Column (GridX)', font: { size: 16 } },
 				gridcolor: 'rgba(100, 100, 100, 0.3)',
 				zerolinecolor: 'rgba(207, 175, 115, 0.8)',
 				tickfont: { size: 14 },
-				dtick: 1
+				...(isStrengthVsCost ? {} : { dtick: 1 })
 			},
 			yaxis: {
-				title: { text: 'Primary Strength / Production Cost', font: { size: 16 } },
+				title: { text: isStrengthVsCost ? 'Primary Combat Strength' : 'Primary Strength / Production Cost', font: { size: 16 } },
 				gridcolor: 'rgba(100, 100, 100, 0.3)',
 				zerolinecolor: 'rgba(207, 175, 115, 0.8)',
 				tickfont: { size: 14 }
@@ -1518,6 +1542,7 @@
 		upgradeConstant;
 		overrideVersion;
 		enabledProductionBuildingTypes;
+		combatSubMode;
 		throttledUpdate();
 	});
 
@@ -1799,12 +1824,31 @@
 {#if graphMode === 'combat-efficiency'}
 		<h2>Combat Efficiency</h2>
 
+		<div class="submode-toggle">
+			<label class:active={combatSubMode === 'ratio-vs-gridx'}>
+				<input type="radio" name="combatSubMode" value="ratio-vs-gridx" bind:group={combatSubMode} />
+				Ratio vs Tech
+			</label>
+			<label class:active={combatSubMode === 'strength-vs-cost'}>
+				<input type="radio" name="combatSubMode" value="strength-vs-cost" bind:group={combatSubMode} />
+				Strength vs Cost
+			</label>
+		</div>
+
 		<div class="info-section">
 			<h3>About This Graph</h3>
+			{#if combatSubMode === 'ratio-vs-gridx'}
 			<p>
 				Shows the <strong style="color: #ff6b6b">primary combat strength / production cost</strong> ratio
 				for each unit along its upgrade line. Higher ratio = more strength per hammer.
 			</p>
+			{:else}
+			<p>
+				Shows <strong style="color: #ff6b6b">primary combat strength</strong> vs
+				<strong style="color: #ff6b6b">effective production cost</strong> for each unit.
+				Points higher and to the left are more cost-efficient.
+			</p>
+			{/if}
 			<p style="font-size: 0.85rem; margin-top: 0.5rem;">
 				Primary strength = RangedCombat if available, otherwise Combat. Unit-specific production bonuses reduce effective cost.
 			</p>
@@ -2089,6 +2133,43 @@
 		margin: 0 0 0.75rem 0;
 		font-size: 1rem;
 		color: #4a9eff;
+	}
+
+	.submode-toggle {
+		display: flex;
+		gap: 0;
+		margin-bottom: 0.75rem;
+	}
+
+	.submode-toggle label {
+		flex: 1;
+		text-align: center;
+		padding: 0.4rem 0.5rem;
+		cursor: pointer;
+		background: #070b0eff;
+		border: 1px solid rgba(207, 175, 115, 0.5);
+		color: rgba(250, 250, 196, 0.6);
+		font-size: 0.85rem;
+		transition: background 0.15s, color 0.15s;
+	}
+
+	.submode-toggle label:first-child {
+		border-radius: 4px 0 0 4px;
+	}
+
+	.submode-toggle label:last-child {
+		border-radius: 0 4px 4px 0;
+		border-left: none;
+	}
+
+	.submode-toggle label.active {
+		background: rgba(207, 175, 115, 0.25);
+		color: rgba(250, 250, 196, 1);
+		border-color: rgba(207, 175, 115, 1);
+	}
+
+	.submode-toggle input[type="radio"] {
+		display: none;
 	}
 
 	
