@@ -50,6 +50,23 @@
 		techGridX: number; // GridX of the prerequisite tech
 	}
 
+	interface UnitProductionModifier {
+		label: string;
+		percent: number;
+	}
+
+	interface ProductionModifierBuilding {
+		type: string;
+		name: string;
+		buildingClass: string;
+		prereqTechGridX: number;
+		isWonder: boolean;
+		isUnique: boolean;
+		civilizationName?: string;
+		modifiers: UnitProductionModifier[];
+		defaultEnabled: boolean;
+	}
+
 	// =============================================================================
 	// CONSTANTS
 	// =============================================================================
@@ -95,9 +112,14 @@
 	let plotDiv: HTMLDivElement | undefined = $state();
 	let initialized = $state(false);
 
+	// Resizable panel drag state
+	let panelWidth: number | null = $state(null); // null = use CSS default
+	let isDragging = $state(false);
+	let pageContainer: HTMLDivElement | undefined = $state();
+
 	// Dropdown for graph selection
 	type GraphMode = 'gold-vs-production' | 'ratio-vs-gridx' | 'combat-efficiency';
-	let graphMode: GraphMode = $state('ratio-vs-gridx');
+	let graphMode: GraphMode = $state('combat-efficiency');
 
 	// Hurry modifier toggles
 	let enabledHurryModifiers = $state(new Set<string>());
@@ -110,6 +132,9 @@
 	// Editable upgrade formula parameters
 	let upgradeCoefficient = $state(1.0); // Multiplier for production difference
 	let upgradeConstant = $state(10); // Base cost added to upgrade
+
+	// Combat-efficiency production modifier building toggles
+	let enabledProductionBuildingTypes = $state(new Set<string>());
 
 	// Game context (Standard speed for now)
 	const gameContext: GameContext = {
@@ -387,7 +412,248 @@
 	// =============================================================================
 
 	const allUnits = (civilopediaData as { units: Unit[] }).units;
+	const allBuildings = (civilopediaData as { buildings: Building[] }).buildings;
 	const upgradeChains = buildUpgradeChains(allUnits);
+	const rawUnitByType = new Map(allUnits.map((u) => [u.Type, u]));
+
+	const MELEE_CLASSES = new Set([
+		'UNITCLASS_WARRIOR',
+		'UNITCLASS_SPEARMAN',
+		'UNITCLASS_PIKEMAN',
+		'UNITCLASS_SWORDSMAN',
+		'UNITCLASS_LONGSWORDSMAN',
+		'UNITCLASS_TERCIO',
+		'UNITCLASS_RIFLEMAN',
+		'UNITCLASS_GREAT_WAR_INFANTRY',
+		'UNITCLASS_INFANTRY',
+		'UNITCLASS_MECHANIZED_INFANTRY'
+	]);
+
+	const ARCHERY_CLASSES = new Set([
+		'UNITCLASS_SLINGER',
+		'UNITCLASS_ARCHER',
+		'UNITCLASS_COMPOSITE_BOWMAN',
+		'UNITCLASS_CROSSBOWMAN',
+		'UNITCLASS_MUSKETMAN',
+		'UNITCLASS_GATLINGGUN',
+		'UNITCLASS_MACHINE_GUN',
+		'UNITCLASS_BAZOOKA',
+		'UNITCLASS_CHARIOT_ARCHER',
+		'UNITCLASS_SKIRMISHER',
+		'UNITCLASS_HEAVY_SKIRMISHER',
+		'UNITCLASS_CUIRASSIER',
+		'UNITCLASS_CAVALRY'
+	]);
+
+	const MOUNTED_CLASSES = new Set([
+		'UNITCLASS_HORSEMAN',
+		'UNITCLASS_KNIGHT',
+		'UNITCLASS_LANCER'
+	]);
+
+	const GUNPOWDER_CLASSES = new Set([
+		'UNITCLASS_TERCIO',
+		'UNITCLASS_RIFLEMAN',
+		'UNITCLASS_GREAT_WAR_INFANTRY',
+		'UNITCLASS_INFANTRY',
+		'UNITCLASS_MECHANIZED_INFANTRY'
+	]);
+
+	const SIEGE_CLASSES = new Set([
+		'UNITCLASS_CATAPULT',
+		'UNITCLASS_TREBUCHET',
+		'UNITCLASS_CANNON',
+		'UNITCLASS_FIELD_GUN',
+		'UNITCLASS_ARTILLERY',
+		'UNITCLASS_ROCKET_ARTILLERY'
+	]);
+
+	const NAVAL_MELEE_CLASSES = new Set([
+		'UNITCLASS_GALLEY',
+		'UNITCLASS_TRIREME',
+		'UNITCLASS_CARAVEL',
+		'UNITCLASS_PRIVATEER',
+		'UNITCLASS_IRONCLAD',
+		'UNITCLASS_DESTROYER',
+		'UNITCLASS_FLEET_DESTROYER',
+		'UNITCLASS_SENSOR_COMBAT_SHIP'
+	]);
+
+	function extractProductionModifiersFromHelp(helpText: string): UnitProductionModifier[] {
+		const modifiers: UnitProductionModifier[] = [];
+		const regex =
+			/\+(\d+)%\s*\[ICON_PRODUCTION\]\s*Production\s+for\s+(?:\[COLOR_[A-Z_]+\])?([^\[]+?)\s*Units(?:\[ENDCOLOR\])?/g;
+		let match: RegExpExecArray | null = regex.exec(helpText);
+		while (match) {
+			const percent = parseInt(match[1], 10);
+			const label = stripColorTags(match[2]).trim();
+			if (!Number.isNaN(percent) && label.length > 0) {
+				const lowered = label.toLowerCase();
+				// Exclude broad all-unit modifiers or city production-rate modifiers.
+				if (!lowered.includes('all')) {
+					modifiers.push({ label, percent });
+				}
+			}
+			match = regex.exec(helpText);
+		}
+		return modifiers;
+	}
+
+	function getUnitTags(unit: Unit): Set<string> {
+		const tags = new Set<string>();
+		if (unit.Domain === 'DOMAIN_LAND') tags.add('land');
+		if (unit.Domain === 'DOMAIN_SEA') tags.add('water');
+		if (unit.Domain === 'DOMAIN_AIR') tags.add('air');
+
+		if (MELEE_CLASSES.has(unit.Class)) tags.add('melee');
+		if (ARCHERY_CLASSES.has(unit.Class)) tags.add('archery');
+		if (MOUNTED_CLASSES.has(unit.Class)) tags.add('mounted');
+		if (GUNPOWDER_CLASSES.has(unit.Class)) tags.add('gunpowder');
+		if (SIEGE_CLASSES.has(unit.Class)) tags.add('siege');
+		if (NAVAL_MELEE_CLASSES.has(unit.Class)) tags.add('naval melee');
+
+		return tags;
+	}
+
+	function modifierAppliesToUnitLabel(label: string, unit: Unit): boolean {
+		const normalized = label.toLowerCase().replace(/\s+/g, ' ').trim();
+		const tags = getUnitTags(unit);
+
+		if (normalized === 'land') return tags.has('land');
+		if (normalized === 'water') return tags.has('water');
+		if (normalized === 'air') return tags.has('air');
+		if (normalized === 'mounted') return tags.has('mounted');
+		if (normalized === 'siege') return tags.has('siege');
+		if (normalized === 'archery') return tags.has('archery');
+		if (normalized === 'melee') return tags.has('melee');
+		if (normalized === 'gunpowder') return tags.has('gunpowder');
+		if (normalized === 'naval melee') return tags.has('naval melee');
+
+		return false;
+	}
+
+	function buildProductionModifierBuildings(): ProductionModifierBuilding[] {
+		const result: ProductionModifierBuilding[] = [];
+
+		for (const building of allBuildings) {
+			const modifiers = extractProductionModifiersFromHelp(building.Help ?? '');
+			if (modifiers.length === 0) continue;
+
+			// Keep only modifiers mapped to combat unit groups used in this visualizer.
+			const supportedModifiers = modifiers.filter((m) => {
+				const l = m.label.toLowerCase();
+				return (
+					l === 'land' ||
+					l === 'water' ||
+					l === 'air' ||
+					l === 'mounted' ||
+					l === 'siege' ||
+					l === 'archery' ||
+					l === 'melee' ||
+					l === 'gunpowder' ||
+					l === 'naval melee'
+				);
+			});
+
+			if (supportedModifiers.length === 0) continue;
+
+			const isUnique = !!(building.Civilizations && building.Civilizations.length > 0);
+			result.push({
+				type: building.Type,
+				name: stripColorTags(building.Name),
+				buildingClass: building.BuildingClass,
+				prereqTechGridX: getGridXFromPrereqTech(techProgressData, building.PrereqTech),
+				isWonder: building.IsWonder || building.IsNationalWonder,
+				isUnique,
+				civilizationName: building.Civilizations?.[0]?.Name,
+				modifiers: supportedModifiers,
+				defaultEnabled: !isUnique && !building.IsWonder && !building.IsNationalWonder
+			});
+		}
+
+		result.sort((a, b) => a.prereqTechGridX - b.prereqTechGridX || a.name.localeCompare(b.name));
+		return result;
+	}
+
+	const productionModifierBuildings = buildProductionModifierBuildings();
+
+	const productionBuildingsByType = new Map(productionModifierBuildings.map((b) => [b.type, b]));
+	const buildingTypesByClass = new Map<string, string[]>();
+	for (const b of productionModifierBuildings) {
+		if (!buildingTypesByClass.has(b.buildingClass)) {
+			buildingTypesByClass.set(b.buildingClass, []);
+		}
+		buildingTypesByClass.get(b.buildingClass)!.push(b.type);
+	}
+
+	function buildDefaultProductionBuildingToggleSet(): Set<string> {
+		const enabled = new Set<string>();
+		for (const b of productionModifierBuildings) {
+			if (b.defaultEnabled) enabled.add(b.type);
+		}
+		return enabled;
+	}
+
+	// One-time initialization of default building toggles
+	let productionBuildingsInitialized = false;
+	$effect(() => {
+		if (!productionBuildingsInitialized && productionModifierBuildings.length > 0) {
+			productionBuildingsInitialized = true;
+			enabledProductionBuildingTypes = buildDefaultProductionBuildingToggleSet();
+		}
+	});
+
+	function isUnitObsoleteAtBuildingUnlock(unit: Unit, buildingGridX: number): boolean {
+		const obsoleteGridX = getGridXFromPrereqTech(techProgressData, unit.ObsoleteTech);
+		if (obsoleteGridX <= 0) return false;
+		return obsoleteGridX <= buildingGridX;
+	}
+
+	function getProductionModifierPercentForUnit(unitType: string): number {
+		const rawUnit = rawUnitByType.get(unitType);
+		if (!rawUnit) return 0;
+
+		let totalPercent = 0;
+		for (const buildingType of enabledProductionBuildingTypes) {
+			const b = productionBuildingsByType.get(buildingType);
+			if (!b) continue;
+
+			if (isUnitObsoleteAtBuildingUnlock(rawUnit, b.prereqTechGridX)) {
+				continue;
+			}
+
+			for (const modifier of b.modifiers) {
+				if (modifierAppliesToUnitLabel(modifier.label, rawUnit)) {
+					totalPercent += modifier.percent;
+				}
+			}
+		}
+
+		return totalPercent;
+	}
+
+	function toggleProductionModifierBuilding(type: string, enabled: boolean) {
+		const building = productionBuildingsByType.get(type);
+		if (!building) return;
+
+		const next = new Set(enabledProductionBuildingTypes);
+		if (enabled) {
+			// Enforce exclusivity within a building class so base and unique variants
+			// cannot both be enabled (e.g., Military Academy vs Schutzenstand).
+			const siblings = buildingTypesByClass.get(building.buildingClass) ?? [];
+			for (const siblingType of siblings) {
+				next.delete(siblingType);
+			}
+			next.add(type);
+		} else {
+			next.delete(type);
+		}
+		enabledProductionBuildingTypes = next;
+	}
+
+	function resetProductionModifierBuildings() {
+		enabledProductionBuildingTypes = buildDefaultProductionBuildingToggleSet();
+	}
 
 	/**
 	 * Editable unit overrides: map from unit Type to overridden values.
@@ -399,16 +665,27 @@
 	/** Reactive counter to force graph updates when overrides change */
 	let overrideVersion = $state(0);
 
-	function getEffectiveUnit(unit: CombatUnitData): { combat: number; rangedCombat: number; productionCost: number; primaryStrength: number } {
+	function getEffectiveUnit(unit: CombatUnitData): {
+		combat: number;
+		rangedCombat: number;
+		productionCost: number;
+		effectiveProductionCost: number;
+		productionModifierPercent: number;
+		primaryStrength: number;
+	} {
 		const override = unitOverrides.get(unit.type);
 		const combat = override?.combat ?? unit.combat;
 		const rangedCombat = override?.rangedCombat ?? unit.rangedCombat;
 		const productionCost = override?.productionCost ?? unit.productionCost;
+		const productionModifierPercent = getProductionModifierPercentForUnit(unit.type);
+		const effectiveProductionCost = productionCost / (1 + productionModifierPercent / 100);
 		return {
 			combat,
 			rangedCombat,
 			productionCost,
-			primaryStrength: Math.max(combat, rangedCombat)
+			effectiveProductionCost,
+			productionModifierPercent,
+			primaryStrength: rangedCombat > 0 ? rangedCombat : combat
 		};
 	}
 
@@ -445,7 +722,7 @@
 				const eff = getEffectiveUnit(unit);
 				const gridX = getGridXFromPrereqTech(techProgressData, 
 					allUnits.find(u => u.Type === unit.type)?.PrereqTech);
-				const ratio = eff.productionCost > 0 ? eff.primaryStrength / eff.productionCost : 0;
+				const ratio = eff.effectiveProductionCost > 0 ? eff.primaryStrength / eff.effectiveProductionCost : 0;
 
 				xs.push(gridX);
 				ys.push(ratio);
@@ -454,6 +731,8 @@
 					`CS: ${eff.combat}` +
 					(eff.rangedCombat > 0 ? ` | RCS: ${eff.rangedCombat}` : '') +
 					` | Cost: ${eff.productionCost}` +
+					` | Mod: +${eff.productionModifierPercent}%` +
+					` | Effective Cost: ${eff.effectiveProductionCost.toFixed(1)}` +
 					` | Era: ${unit.eraName}`
 				);
 			}
@@ -495,6 +774,7 @@
 		}
 
 		const layout: Partial<Plotly.Layout> = {
+			autosize: true,
 			title: {
 				text: 'Combat Strength / Production Cost vs Tech Column',
 				font: { family: 'Tw Cen MT, sans-serif', size: 19, color: 'rgba(250, 250, 196, 1)' }
@@ -518,7 +798,8 @@
 			},
 			hovermode: 'closest',
 			legend: {
-				x: 0.73,
+				title: { text: '<i>click or double-click on labels</i>', font: { size: 11, color: 'rgba(250, 250, 196, 0.5)' } },
+				x: 0.8,
 				y: 1,
 				bordercolor: 'rgba(207, 175, 115, 1)',
 				borderwidth: 1,
@@ -821,6 +1102,7 @@
 		       };
 
 		       const layout: Partial<Plotly.Layout> = {
+			       autosize: true,
 			       title: {
 				       text: 'Gold/Production Ratio vs Tech Column',
 				       font: { family: 'Tw Cen MT, sans-serif', size: 19, color: 'rgba(250, 250, 196, 1)' }
@@ -851,6 +1133,7 @@
 			       },
 			       hovermode: 'closest',
 			       legend: {
+				       title: { text: '<i>click or double-click on labels</i>', font: { size: 11, color: 'rgba(250, 250, 196, 0.5)' } },
 				       x: 0.73,
 				       y: 1,
 				       bordercolor: 'rgba(207, 175, 115, 1)',
@@ -1053,6 +1336,7 @@
 		};
 
 		const layout: Partial<Plotly.Layout> = {
+			autosize: true,
 			title: {
 				text: 'Gold Purchase/Investment Cost vs Production Cost',
 				font: { family: 'Tw Cen MT, sans-serif', size: 19, color: 'rgba(250, 250, 196, 1)' }
@@ -1075,6 +1359,7 @@
 			},
 			hovermode: 'closest',
 			legend: {
+				title: { text: '<i>click or double-click on labels</i>', font: { size: 11, color: 'rgba(250, 250, 196, 0.5)' } },
 				x: 0.041,
 				y: 1,
 				bordercolor: 'rgba(207, 175, 115, 1)',
@@ -1123,6 +1408,24 @@
 	const throttledUpdate = createThrottle(() => {
 		if (!plotDiv || !initialized) return;
 		const { traces, layout } = getPlotDataForMode();
+
+		// Preserve legend visibility state from current plot
+		const currentData = (plotDiv as any).data as Plotly.Data[] | undefined;
+		if (currentData) {
+			const visibilityByName = new Map<string, boolean | 'legendonly'>();
+			for (const t of currentData) {
+				if (t.name && t.visible !== undefined) {
+					visibilityByName.set(t.name, t.visible as boolean | 'legendonly');
+				}
+			}
+			for (const t of traces) {
+				const saved = visibilityByName.get(t.name as string);
+				if (saved !== undefined) {
+					(t as any).visible = saved;
+				}
+			}
+		}
+
 		Plotly.react(plotDiv, traces, layout, plotlyConfig);
 	}, 16);
 
@@ -1137,8 +1440,43 @@
 		upgradeCoefficient;
 		upgradeConstant;
 		overrideVersion;
+		enabledProductionBuildingTypes;
 		throttledUpdate();
 	});
+
+	// Resize Plotly when graph mode changes (panel width changes)
+	$effect(() => {
+		graphMode;
+		if (!plotDiv || !initialized) return;
+		panelWidth = null; // reset manual width on mode change
+		const div = plotDiv;
+		setTimeout(() => Plotly.Plots.resize(div), 250);
+	});
+
+	// Draggable divider handlers
+	function onDividerPointerDown(e: PointerEvent) {
+		e.preventDefault();
+		isDragging = true;
+		const target = e.currentTarget as HTMLElement;
+		target.setPointerCapture(e.pointerId);
+	}
+
+	function onDividerPointerMove(e: PointerEvent) {
+		if (!isDragging || !pageContainer) return;
+		const containerRect = pageContainer.getBoundingClientRect();
+		const newWidth = e.clientX - containerRect.left;
+		// Clamp between 200px and 60% of container
+		const maxWidth = containerRect.width * 0.6;
+		panelWidth = Math.max(200, Math.min(newWidth, maxWidth));
+	}
+
+	function onDividerPointerUp() {
+		if (!isDragging) return;
+		isDragging = false;
+		if (plotDiv && initialized) {
+			Plotly.Plots.resize(plotDiv);
+		}
+	}
 
 	// Initial render
 	$effect(() => {
@@ -1154,10 +1492,14 @@
 	<title>VP Mechanics Visualizer</title>
 </svelte:head>
 
-<div class="page-container">
+<div class="page-container" class:dragging={isDragging} bind:this={pageContainer}>
 	<!-- Left Panel: Controls -->
 
-	<div class="control-panel" class:wide-panel={graphMode === 'combat-efficiency'}>
+	<div
+		class="control-panel"
+		class:wide-panel={graphMode === 'combat-efficiency'}
+		style:width={panelWidth !== null ? `${panelWidth}px` : undefined}
+	>
 <div class="graph-mode-section">
 		<label for="graph-mode-select" class="graph-mode-label">Graph Selection:</label>
 		<select id="graph-mode-select" bind:value={graphMode} class="graph-mode-select">
@@ -1387,13 +1729,69 @@
 				for each unit along its upgrade line. Higher ratio = more strength per hammer.
 			</p>
 			<p style="font-size: 0.85rem; margin-top: 0.5rem;">
-				Primary strength = max(Combat, RangedCombat). Edit values below to experiment.
+				Primary strength = RangedCombat if available, otherwise Combat. Unit-specific production bonuses reduce effective cost.
 			</p>
+		</div>
+
+		<div class="modifier-buildings-section">
+			<h3>Unit Production Modifier Buildings</h3>
+			<p class="modifier-description">
+				Only unit-class-specific production modifiers are listed. Broad all-unit/city production boosts are excluded.
+			</p>
+			<div class="building-toggle-table-wrap">
+				<table class="building-toggle-table">
+					<thead>
+						<tr>
+							<th>On</th>
+							<th>Building</th>
+							<th>Tech</th>
+							<th>Modifiers</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each productionModifierBuildings as b}
+							<tr>
+								<td>
+									<input
+										type="checkbox"
+										checked={enabledProductionBuildingTypes.has(b.type)}
+										onchange={(e) => toggleProductionModifierBuilding(b.type, e.currentTarget.checked)}
+									/>
+								</td>
+								<td>
+									<div class="building-name-row">
+										<span>{b.name}</span>
+										{#if b.isUnique}
+											<span class="building-badge unique">Unique</span>
+										{/if}
+										{#if b.isWonder}
+											<span class="building-badge wonder">Wonder</span>
+										{/if}
+									</div>
+									{#if b.civilizationName}
+										<div class="building-civ">{b.civilizationName}</div>
+									{/if}
+									<div class="building-class">{b.buildingClass}</div>
+								</td>
+								<td>{b.prereqTechGridX}</td>
+								<td>
+									{#each b.modifiers as m, i}
+										<span class="modifier-chip">+{m.percent}% {m.label}</span>{i < b.modifiers.length - 1 ? ', ' : ''}
+									{/each}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
 		</div>
 
 		<div class="combat-table-controls">
 			<button class="reset-button" onclick={resetOverrides}>
-				Reset All to Default
+				Reset Unit Value Overrides
+			</button>
+			<button class="reset-button" onclick={resetProductionModifierBuildings}>
+				Reset Building Toggles
 			</button>
 		</div>
 
@@ -1409,14 +1807,16 @@
 								<th class="th-name">Unit</th>
 								<th class="th-stat">CS</th>
 								<th class="th-stat">RCS</th>
-								<th class="th-cost">Cost</th>
+								<th class="th-cost">Base Cost</th>
+								<th class="th-cost">Eff. Cost</th>
+								<th class="th-stat">Mod</th>
 								<th class="th-ratio">Ratio</th>
 							</tr>
 						</thead>
 						<tbody>
 							{#each chain.units as unit}
 								{@const eff = getEffectiveUnit(unit)}
-								{@const ratio = eff.productionCost > 0 ? eff.primaryStrength / eff.productionCost : 0}
+								{@const ratio = eff.effectiveProductionCost > 0 ? eff.primaryStrength / eff.effectiveProductionCost : 0}
 								{@const hasOverride = unitOverrides.has(unit.type)}
 								<tr class:edited={hasOverride}>
 									<td class="td-name" title={unit.type}>{unit.name}</td>
@@ -1456,6 +1856,8 @@
 											}}
 										/>
 									</td>
+									<td class="td-ratio">{eff.effectiveProductionCost.toFixed(1)}</td>
+									<td class="td-ratio">+{eff.productionModifierPercent}%</td>
 									<td class="td-ratio">{ratio.toFixed(4)}</td>
 								</tr>
 							{/each}
@@ -1466,6 +1868,17 @@
 		</div>
 {/if}
 	</div>
+
+	<!-- Draggable Divider -->
+	<div
+		class="panel-divider"
+		role="separator"
+		aria-orientation="vertical"
+		onpointerdown={onDividerPointerDown}
+		onpointermove={onDividerPointerMove}
+		onpointerup={onDividerPointerUp}
+		onpointercancel={onDividerPointerUp}
+	></div>
 
 	<!-- Right Panel: Graph -->
 	<div class="graph-panel">
@@ -1533,10 +1946,9 @@
 
 	/* Left Panel */
 	.control-panel {
-		width: 320px;
-		min-width: 280px;
+		width: clamp(260px, 20vw, 360px);
+		flex-shrink: 0;
 		padding: 1rem;
-		border-right: 1px solid rgba(207, 175, 115, 1);
 		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
@@ -1545,8 +1957,40 @@
 	}
 
 	.control-panel.wide-panel {
-		width: 420px;
-		min-width: 380px;
+		width: clamp(320px, 25vw, 520px);
+	}
+
+	/* Disable transition while dragging */
+	.dragging .control-panel {
+		transition: none;
+	}
+
+	/* Draggable Divider */
+	.panel-divider {
+		width: 5px;
+		flex-shrink: 0;
+		background: rgba(207, 175, 115, 1);
+		cursor: col-resize;
+		transition: background 0.15s;
+		position: relative;
+	}
+
+	.panel-divider::before {
+		content: '';
+		position: absolute;
+		inset: 0 -4px;
+		z-index: 1;
+	}
+
+	.panel-divider:hover,
+	.dragging .panel-divider {
+		background: #4a9eff;
+	}
+
+	/* Prevent text selection while dragging */
+	.dragging {
+		user-select: none;
+		cursor: col-resize;
 	}
 
 	.control-panel h2 {
@@ -1843,6 +2287,79 @@
 	/* Combat Efficiency Table */
 	.combat-table-controls {
 		margin-bottom: 0.75rem;
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.modifier-buildings-section {
+		padding: 1rem;
+		border: 1px solid rgba(207, 175, 115, 1);
+	}
+
+	.modifier-buildings-section h3 {
+		margin: 0 0 0.5rem 0;
+		font-size: 1rem;
+		color: #64c8ff;
+	}
+
+	.building-toggle-table-wrap {
+		max-height: 240px;
+		overflow-y: auto;
+		border: 1px solid rgba(100, 100, 150, 0.3);
+	}
+
+	.building-toggle-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.75rem;
+	}
+
+	.building-toggle-table th,
+	.building-toggle-table td {
+		padding: 0.3rem;
+		border-bottom: 1px solid rgba(100, 100, 150, 0.2);
+		vertical-align: top;
+	}
+
+	.building-toggle-table th {
+		color: #ffc864;
+		font-weight: 600;
+		position: sticky;
+		top: 0;
+		background: #070b0eff;
+	}
+
+	.building-name-row {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		font-size: 0.78rem;
+	}
+
+	.building-civ,
+	.building-class {
+		font-size: 0.7rem;
+		opacity: 0.85;
+	}
+
+	.building-badge {
+		font-size: 0.64rem;
+		padding: 0.1rem 0.25rem;
+		border: 1px solid rgba(207, 175, 115, 0.6);
+	}
+
+	.building-badge.unique {
+		color: #ff9f7f;
+	}
+
+	.building-badge.wonder {
+		color: #e6cd1a;
+	}
+
+	.modifier-chip {
+		font-family: 'Consolas', monospace;
+		font-size: 0.7rem;
+		color: #64c864;
 	}
 
 	.combat-table-container {
@@ -1879,19 +2396,19 @@
 
 	.th-name {
 		text-align: left !important;
-		width: 40%;
+		width: 30%;
 	}
 
 	.th-stat {
-		width: 14%;
+		width: 10%;
 	}
 
 	.th-cost {
-		width: 18%;
+		width: 12%;
 	}
 
 	.th-ratio {
-		width: 14%;
+		width: 12%;
 	}
 
 	.combat-table td {
@@ -1947,7 +2464,7 @@
 	}
 
 	.cost-input {
-		max-width: 58px;
+		max-width: 68px;
 	}
 
 	tr.edited {
