@@ -17,6 +17,7 @@
 		buildProductionGridXCorrelation,
 		getEstimatedTechsFromProductionCorrelation,
 		getEstimatedTechProgressFromProductionCorrelation,
+		buildBeelineScienceCosts,
 		type TechProgressData,
 		type ProductionGridXCorrelation,
 		type ProductionGridXDataPoint
@@ -125,6 +126,14 @@
 	type CombatSubMode = 'ratio-vs-gridx' | 'strength-vs-cost';
 	let combatSubMode: CombatSubMode = $state('ratio-vs-gridx');
 
+	// X-axis mode for ratio-vs-gridx sub-mode
+	type XAxisMode = 'gridx' | 'beeline-science';
+	let xAxisMode: XAxisMode = $state('gridx');
+
+	// X-axis scale for beeline science / production cost axes
+	type XAxisScale = 'linear' | 'sqrt' | 'log';
+	let xAxisScale: XAxisScale = $state('sqrt');
+
 	// Hurry modifier toggles
 	let enabledHurryModifiers = $state(new Set<string>());
 	let enableIndustryPolicies = $state(false);
@@ -180,6 +189,11 @@
 
 	// Build tech progress data for mapping production costs to tech counts
 	const techProgressData: TechProgressData = buildTechProgressData(
+		(civilopediaData as { technologies: Technology[] }).technologies
+	);
+
+	// Beeline science costs: cumulative science to research a tech and all its prerequisites
+	const beelineScienceCosts = buildBeelineScienceCosts(
 		(civilopediaData as { technologies: Technology[] }).technologies
 	);
 
@@ -743,7 +757,16 @@
 	 */
 	function buildCombatEfficiencyPlotData() {
 		const isStrengthVsCost = combatSubMode === 'strength-vs-cost';
+		const useBeelineScience = !isStrengthVsCost && xAxisMode === 'beeline-science';
+		const needsScale = isStrengthVsCost || useBeelineScience;
+		const useSqrt = needsScale && xAxisScale === 'sqrt';
+		const useLog = needsScale && xAxisScale === 'log';
+
+		// For sqrt scale: transform x → √x, then provide custom tick labels
+		const transformX = (x: number): number => useSqrt ? Math.sqrt(x) : x;
+
 		const traces: Plotly.Data[] = [];
+		const allRawXs: number[] = []; // collect raw X values for custom ticks
 
 		for (let i = 0; i < upgradeChains.length; i++) {
 			const chain = upgradeChains[i];
@@ -756,15 +779,23 @@
 
 			for (const unit of chain.units) {
 				const eff = getEffectiveUnit(unit);
+				const rawUnit = allUnits.find(u => u.Type === unit.type);
+				const prereqTechType = rawUnit?.PrereqTech?.Type;
 
 				if (isStrengthVsCost) {
-					xs.push(eff.effectiveProductionCost);
+					const rawX = eff.effectiveProductionCost;
+					allRawXs.push(rawX);
+					xs.push(transformX(rawX));
 					ys.push(eff.primaryStrength);
 				} else {
-					const gridX = getGridXFromPrereqTech(techProgressData, 
-						allUnits.find(u => u.Type === unit.type)?.PrereqTech);
 					const ratio = eff.effectiveProductionCost > 0 ? eff.primaryStrength / eff.effectiveProductionCost : 0;
-					xs.push(gridX);
+					if (useBeelineScience) {
+						const rawX = prereqTechType ? (beelineScienceCosts.get(prereqTechType) ?? 0) : 0;
+						allRawXs.push(rawX);
+						xs.push(transformX(rawX));
+					} else {
+						xs.push(getGridXFromPrereqTech(techProgressData, rawUnit?.PrereqTech));
+					}
 					ys.push(ratio);
 				}
 
@@ -810,7 +841,7 @@
 				},
 				customdata: hoverTexts,
 				hovertemplate: isStrengthVsCost
-					? '<b>%{text}</b><br>Strength: %{y}<br>Eff. Cost: %{x:.1f}<br>%{customdata}<extra>' + chain.name + '</extra>'
+					? '<b>%{text}</b><br>Strength: %{y}<br>%{customdata}<extra>' + chain.name + '</extra>'
 					: '<b>%{text}</b><br>Strength/Cost: %{y:.4f}<br>%{customdata}<extra>' + chain.name + '</extra>',
 				showlegend: false,
 				legendgroup: chain.name
@@ -830,12 +861,20 @@
 				const eff = getEffectiveUnit(unit);
 
 				if (isStrengthVsCost) {
-					uxs.push(eff.effectiveProductionCost);
+					const rawX = eff.effectiveProductionCost;
+					allRawXs.push(rawX);
+					uxs.push(transformX(rawX));
 					uys.push(eff.primaryStrength);
 				} else {
-					const gridX = getGridXFromPrereqTech(techProgressData, rawUnit.PrereqTech);
 					const ratio = eff.effectiveProductionCost > 0 ? eff.primaryStrength / eff.effectiveProductionCost : 0;
-					uxs.push(gridX);
+					if (useBeelineScience) {
+						const prereqType = rawUnit.PrereqTech?.Type;
+						const rawX = prereqType ? (beelineScienceCosts.get(prereqType) ?? 0) : 0;
+						allRawXs.push(rawX);
+						uxs.push(transformX(rawX));
+					} else {
+						uxs.push(getGridXFromPrereqTech(techProgressData, rawUnit.PrereqTech));
+					}
 					uys.push(ratio);
 				}
 
@@ -865,19 +904,45 @@
 				},
 				customdata: uhoverTexts,
 				hovertemplate: isStrengthVsCost
-					? '<b>%{text}</b><br>Strength: %{y}<br>Eff. Cost: %{x:.1f}<br>%{customdata}<extra>Unique Unit</extra>'
+					? '<b>%{text}</b><br>Strength: %{y}<br>%{customdata}<extra>Unique Unit</extra>'
 					: '<b>%{text}</b><br>Strength/Cost: %{y:.4f}<br>%{customdata}<extra>Unique Unit</extra>',
 				showlegend: true,
 				visible: 'legendonly'
 			});
 		}
 
+		const xAxisTitle = isStrengthVsCost
+			? 'Effective Production Cost'
+			: useBeelineScience
+				? 'Beeline Science Cost'
+				: 'Tech Column (GridX)';
+		const graphTitle = isStrengthVsCost
+			? 'Combat Strength vs Effective Production Cost'
+			: useBeelineScience
+				? 'Combat Strength / Production Cost vs Beeline Science'
+				: 'Combat Strength / Production Cost vs Tech Column';
+
+		// Build custom ticks for sqrt scale (show real values at sqrt-spaced positions)
+		let sqrtTickConfig: Partial<Plotly.LayoutAxis> = {};
+		if (useSqrt && allRawXs.length > 0) {
+			const maxVal = Math.max(...allRawXs);
+			const niceValues: number[] = [];
+			// Generate tick marks at "nice" values that span the data range
+			const candidates = [0, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000];
+			for (const v of candidates) {
+				if (v <= maxVal * 1.1) niceValues.push(v);
+			}
+			sqrtTickConfig = {
+				tickmode: 'array' as const,
+				tickvals: niceValues.map(v => Math.sqrt(v)),
+				ticktext: niceValues.map(v => v >= 1000 ? (v / 1000) + 'k' : String(v))
+			};
+		}
+
 		const layout: Partial<Plotly.Layout> = {
 			autosize: true,
 			title: {
-				text: isStrengthVsCost
-					? 'Combat Strength vs Effective Production Cost'
-					: 'Combat Strength / Production Cost vs Tech Column',
+				text: graphTitle,
 				font: { family: 'Tw Cen MT, sans-serif', size: 19, color: 'rgba(250, 250, 196, 1)' }
 			},
 			font: { family: 'Tw Cen MT, sans-serif', color: 'rgba(250, 250, 196, 1)' },
@@ -885,11 +950,13 @@
 			plot_bgcolor: '#070b0eff',
 			margin: { l: 70, r: 30, t: 80, b: 60 },
 			xaxis: {
-				title: { text: isStrengthVsCost ? 'Effective Production Cost' : 'Tech Column (GridX)', font: { size: 16 } },
+				title: { text: xAxisTitle + (useSqrt ? ' (√ scale)' : ''), font: { size: 16 } },
 				gridcolor: 'rgba(100, 100, 100, 0.3)',
 				zerolinecolor: 'rgba(207, 175, 115, 0.8)',
 				tickfont: { size: 14 },
-				...(isStrengthVsCost ? {} : { dtick: 1 })
+				...(isStrengthVsCost || useBeelineScience ? {} : { dtick: 1 }),
+				...(useLog ? { type: 'log' as const } : {}),
+				...sqrtTickConfig
 			},
 			yaxis: {
 				title: { text: isStrengthVsCost ? 'Primary Combat Strength' : 'Primary Strength / Production Cost', font: { size: 16 } },
@@ -1543,6 +1610,8 @@
 		overrideVersion;
 		enabledProductionBuildingTypes;
 		combatSubMode;
+		xAxisMode;
+		xAxisScale;
 		throttledUpdate();
 	});
 
@@ -1853,6 +1922,42 @@
 				Primary strength = RangedCombat if available, otherwise Combat. Unit-specific production bonuses reduce effective cost.
 			</p>
 		</div>
+
+		{#if combatSubMode === 'ratio-vs-gridx'}
+		<div class="xaxis-toggle">
+			<span class="xaxis-label">X Axis:</span>
+			<div class="submode-toggle" style="flex: 1;">
+				<label class:active={xAxisMode === 'gridx'}>
+					<input type="radio" name="xAxisMode" value="gridx" bind:group={xAxisMode} />
+					Tech Column (GridX)
+				</label>
+				<label class:active={xAxisMode === 'beeline-science'}>
+					<input type="radio" name="xAxisMode" value="beeline-science" bind:group={xAxisMode} />
+					Beeline Science Cost
+				</label>
+			</div>
+		</div>
+		{/if}
+
+		{#if combatSubMode === 'strength-vs-cost' || (combatSubMode === 'ratio-vs-gridx' && xAxisMode === 'beeline-science')}
+		<div class="xaxis-toggle">
+			<span class="xaxis-label">Scale:</span>
+			<div class="submode-toggle" style="flex: 1;">
+				<label class:active={xAxisScale === 'linear'}>
+					<input type="radio" name="xAxisScale" value="linear" bind:group={xAxisScale} />
+					Linear
+				</label>
+				<label class:active={xAxisScale === 'sqrt'}>
+					<input type="radio" name="xAxisScale" value="sqrt" bind:group={xAxisScale} />
+					√ Root
+				</label>
+				<label class:active={xAxisScale === 'log'}>
+					<input type="radio" name="xAxisScale" value="log" bind:group={xAxisScale} />
+					Log₁₀
+				</label>
+			</div>
+		</div>
+		{/if}
 
 		<div class="modifier-buildings-section">
 			<h3>Unit Production Modifier Buildings</h3>
@@ -2171,6 +2276,21 @@
 	.submode-toggle input[type="radio"] {
 		display: none;
 	}
+
+	.xaxis-toggle {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.xaxis-label {
+		font-size: 0.85rem;
+		color: rgba(250, 250, 196, 0.7);
+		white-space: nowrap;
+	}
+
+
 
 	
 	.unit-list {

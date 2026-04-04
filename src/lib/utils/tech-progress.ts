@@ -527,3 +527,74 @@ export function getEstimatedTechProgressFromProductionCorrelation(
 	const gridX = getGridXFromProductionCorrelation(correlation, productionCost);
 	return getEstimatedTechProgressAtGridX(techProgressData, Math.round(gridX));
 }
+
+// =============================================================================
+// BEELINE SCIENCE COST
+// =============================================================================
+
+/**
+ * Build a map from tech Type to the total science cost of beelining to that tech.
+ * Beeline cost = the tech's own cost + the cost of all prerequisite techs recursively.
+ *
+ * Prerequisites are determined by reversing LeadsToTechs (forward links) to get
+ * backward links. All prerequisites are AND — you must research every prereq.
+ *
+ * @param technologies - Array of all technologies from civilopedia_export.json
+ * @returns Map from tech Type to cumulative beeline science cost
+ */
+export function buildBeelineScienceCosts(technologies: Technology[]): Map<string, number> {
+	const costByType = new Map<string, number>();
+	const prereqsOf = new Map<string, string[]>();
+
+	for (const tech of technologies) {
+		costByType.set(tech.Type, tech.Cost);
+		// Initialize empty prereq list for every tech
+		if (!prereqsOf.has(tech.Type)) {
+			prereqsOf.set(tech.Type, []);
+		}
+		// Reverse the forward links to get backward (prereq) links
+		const leadsTo = Array.isArray(tech.LeadsToTechs) ? tech.LeadsToTechs : [];
+		for (const lt of leadsTo) {
+			if (!prereqsOf.has(lt.Type)) {
+				prereqsOf.set(lt.Type, []);
+			}
+			prereqsOf.get(lt.Type)!.push(tech.Type);
+		}
+	}
+
+	const cache = new Map<string, number>();
+
+	function beeline(techType: string): number {
+		const cached = cache.get(techType);
+		if (cached !== undefined) return cached;
+
+		const ownCost = costByType.get(techType) ?? 0;
+		const prereqs = prereqsOf.get(techType) ?? [];
+
+		// Collect all unique techs in the prerequisite tree
+		const visited = new Set<string>();
+		const stack = [...prereqs];
+		while (stack.length > 0) {
+			const t = stack.pop()!;
+			if (visited.has(t)) continue;
+			visited.add(t);
+			for (const p of prereqsOf.get(t) ?? []) {
+				if (!visited.has(p)) stack.push(p);
+			}
+		}
+
+		let total = ownCost;
+		for (const t of visited) {
+			total += costByType.get(t) ?? 0;
+		}
+
+		cache.set(techType, total);
+		return total;
+	}
+
+	const result = new Map<string, number>();
+	for (const tech of technologies) {
+		result.set(tech.Type, beeline(tech.Type));
+	}
+	return result;
+}
