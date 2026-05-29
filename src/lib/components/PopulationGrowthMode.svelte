@@ -168,7 +168,6 @@
 	let gameSpeedType = $state<GameSpeedType>('GAMESPEED_STANDARD');
 	let maxCitizen = $state(70);
 	let minCitizen = $state(10);
-	let cityIsCapital = $state(false);
 	let enabledBuildingTypes = $state(new Set<string>());
 
 	// Growth modifier state — all stack additively, applied to Food with % growth modifier (post-consumption).
@@ -256,7 +255,7 @@
 		let total = 0;
 		if (foodTempleArtemis) total += 10;
 		if (foodIFC) total += 5;
-		if (foodThroneRoom && cityIsCapital) total += 10;
+		if (foodThroneRoom) total += 10;
 		if (foodGurdwara) total += 10;
 		if (foodHarappan) {
 			const followers = Math.floor((population * Math.max(0, Math.min(100, harappanFollowerPct))) / 100);
@@ -397,10 +396,6 @@
 	}
 
 	function sourceScopeApplies(source: PopulationGrowthGlobalSource): boolean {
-		if (source.scope === 'capital') {
-			return cityIsCapital;
-		}
-
 		return true;
 	}
 
@@ -492,7 +487,7 @@
 
 	function buildGrowthPlot() {
 		const showGrowthAdj = totalGrowthPct > 0;
-		const showBaseFood = totalGrowthPct > 0 || foodTempleArtemis || foodIFC || (foodThroneRoom && cityIsCapital) || foodGurdwara || foodHarappan;
+		const showBaseFood = totalGrowthPct > 0 || foodTempleArtemis || foodIFC || foodThroneRoom || foodGurdwara || foodHarappan;
 
 		const traces: Array<Record<string, unknown>> = [
 			{
@@ -862,7 +857,6 @@
 		editedGraphPoints;
 		formulaChanged;
 		activeOutputYieldTypes;
-		cityIsCapital;
 		throttledUpdate();
 	});
 
@@ -987,11 +981,6 @@
 				<input type="number" min="10" max="120" bind:value={maxCitizen} />
 			</label>
 
-			<label class="checkbox-label">
-				<input type="checkbox" bind:checked={cityIsCapital} />
-				<span>City is the capital</span>
-			</label>
-
 			<p class="helper-text">
 				Era-scaled birth yields follow VP's DLL multiplier: Ancient and Classical are x1, then each later era steps up by 1.
 			</p>
@@ -1085,8 +1074,8 @@
 			</label>
 
 			<label class="checkbox-label">
-				<input type="checkbox" bind:checked={foodThroneRoom} disabled={!cityIsCapital} />
-				<span class:dimmed={!cityIsCapital}>Throne Room <span class="mod-badge">+10%</span> <span class="condition-note">(capital only)</span></span>
+				<input type="checkbox" bind:checked={foodThroneRoom} />
+				<span>Throne Room <span class="mod-badge">+10%</span></span>
 			</label>
 
 			<label class="checkbox-label">
@@ -1648,10 +1637,6 @@
 	.formula-val {
 		color: #ffc864;
 		font-weight: 600;
-	}
-
-	.dimmed {
-		opacity: 0.45;
 	}
 
 	.graph-panel {
