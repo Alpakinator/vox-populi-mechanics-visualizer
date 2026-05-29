@@ -907,6 +907,16 @@
 			</div>
 		{/if}
 
+		<div class="panel-intro">
+			<p class="eyebrow">Population Growth and Its Yields</p>
+			<h1>Citizen Birth Curves</h1>
+			{#if activeGraph === 'ratio'}
+				<p>Yield gained on each citizen birth divided by the Food with % food & growth modifier — how much yield each raw food unit earns you.</p>
+			{:else}
+				<p>Net food needed to birth each citizen after food kept from the previous growth event.</p>
+			{/if}
+		</div>
+
 		<div class="graph-tab-toggle">
 			<button
 				class="graph-tab"
@@ -948,16 +958,6 @@
 				<input type="number" min="0.1" step="0.01" bind:value={formulaExponent} />
 			</label>
 		</section>
-
-		<div class="panel-intro">
-			<p class="eyebrow">Population Growth and Its Yields</p>
-			<h1>Citizen Birth Curves</h1>
-			{#if activeGraph === 'ratio'}
-				<p>Yield gained on each citizen birth divided by the Food with % food & growth modifier — how much yield each raw food unit earns you.</p>
-			{:else}
-				<p>Net food needed to birth each citizen after food kept from the previous growth event.</p>
-			{/if}
-		</div>
 
 		<section class="control-section">
 			<h2>City Setup</h2>
