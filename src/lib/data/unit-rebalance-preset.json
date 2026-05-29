@@ -1,0 +1,1108 @@
+{
+  "version": "2.0",
+  "groups": [
+    {
+      "chainName": "Melee (Anti-Mounted)",
+      "units": [
+        {
+          "type": "UNIT_DANISH_BERSERKER",
+          "combat": 20,
+          "rangedCombat": 0,
+          "productionCost": 135
+        },
+        {
+          "type": "UNIT_FREE_COMPANY",
+          "combat": 20,
+          "rangedCombat": 0,
+          "productionCost": 170
+        },
+        {
+          "type": "UNIT_GOEDENDAG",
+          "combat": 21,
+          "rangedCombat": 0,
+          "productionCost": 100
+        },
+        {
+          "type": "UNIT_PIKEMAN",
+          "combat": 19,
+          "rangedCombat": 0,
+          "productionCost": 135
+        },
+        {
+          "type": "UNIT_POLYNESIAN_MAORI_WARRIOR",
+          "combat": 22,
+          "rangedCombat": 0,
+          "productionCost": 135
+        },
+        {
+          "type": "UNIT_GERMAN_LANDSKNECHT",
+          "combat": 30,
+          "rangedCombat": 0,
+          "productionCost": 275
+        },
+        {
+          "type": "UNIT_FRENCH_MUSKETEER",
+          "combat": 31,
+          "rangedCombat": 0,
+          "productionCost": 300
+        },
+        {
+          "type": "UNIT_SPANISH_TERCIO",
+          "combat": 28,
+          "rangedCombat": 0,
+          "productionCost": 300
+        },
+        {
+          "type": "UNIT_ZULU_IMPI",
+          "combat": 29,
+          "rangedCombat": 0,
+          "productionCost": 300
+        },
+        {
+          "type": "UNIT_YELLOW_BROW",
+          "combat": 32,
+          "rangedCombat": 0,
+          "productionCost": 300
+        },
+        {
+          "type": "UNIT_RIFLEMAN",
+          "combat": 40,
+          "rangedCombat": 0,
+          "productionCost": 625
+        },
+        {
+          "type": "UNIT_SWEDISH_CAROLEAN",
+          "combat": 42,
+          "rangedCombat": 0,
+          "productionCost": 625
+        },
+        {
+          "type": "UNIT_GRENZER",
+          "combat": 42,
+          "rangedCombat": 0,
+          "productionCost": 625
+        },
+        {
+          "type": "UNIT_GREAT_WAR_INFANTRY",
+          "combat": 52,
+          "rangedCombat": 0,
+          "productionCost": 900
+        },
+        {
+          "type": "UNIT_MERCENARY",
+          "combat": 68,
+          "rangedCombat": 0,
+          "productionCost": 950
+        },
+        {
+          "type": "UNIT_INFANTRY",
+          "combat": 66,
+          "rangedCombat": 0,
+          "productionCost": 1300
+        },
+        {
+          "type": "UNIT_MECHANIZED_INFANTRY",
+          "combat": 83,
+          "rangedCombat": 0,
+          "productionCost": 1800
+        },
+        {
+          "type": "UNIT_WARRIOR",
+          "combat": 8,
+          "rangedCombat": 0,
+          "productionCost": 40
+        },
+        {
+          "type": "UNIT_OTOMI",
+          "combat": 10,
+          "rangedCombat": 0,
+          "productionCost": 40
+        },
+        {
+          "type": "UNIT_SPEARMAN",
+          "combat": 12,
+          "rangedCombat": 0,
+          "productionCost": 70
+        },
+        {
+          "type": "UNIT_GREEK_HOPLITE",
+          "combat": 13,
+          "rangedCombat": 0,
+          "productionCost": 70
+        },
+        {
+          "type": "UNIT_PERSIAN_IMMORTAL",
+          "combat": 13,
+          "rangedCombat": 0,
+          "productionCost": 70
+        },
+        {
+          "type": "UNIT_CELT_PICTISH_WARRIOR",
+          "combat": 13,
+          "rangedCombat": 0,
+          "productionCost": 70
+        },
+        {
+          "type": "UNIT_SABUM_KIBITUM",
+          "combat": 13,
+          "rangedCombat": 0,
+          "productionCost": 70
+        }
+      ]
+    },
+    {
+      "chainName": "Melee (Shock)",
+      "units": [
+        {
+          "type": "UNIT_SWORDSMAN",
+          "combat": 17,
+          "rangedCombat": 0,
+          "productionCost": 100
+        },
+        {
+          "type": "UNIT_IROQUOIAN_MOHAWKWARRIOR",
+          "combat": 17,
+          "rangedCombat": 0,
+          "productionCost": 100
+        },
+        {
+          "type": "UNIT_ROMAN_LEGION",
+          "combat": 19,
+          "rangedCombat": 0,
+          "productionCost": 100
+        },
+        {
+          "type": "UNIT_KRIS_SWORDSMAN",
+          "combat": 17,
+          "rangedCombat": 0,
+          "productionCost": 100
+        },
+        {
+          "type": "UNIT_LONGSWORDSMAN",
+          "combat": 24,
+          "rangedCombat": 0,
+          "productionCost": 165
+        },
+        {
+          "type": "UNIT_JAPANESE_SAMURAI",
+          "combat": 27,
+          "rangedCombat": 0,
+          "productionCost": 165
+        },
+        {
+          "type": "UNIT_AZTEC_JAGUAR",
+          "combat": 25,
+          "rangedCombat": 0,
+          "productionCost": 165
+        },
+        {
+          "type": "UNIT_CHEWA",
+          "combat": 26,
+          "rangedCombat": 0,
+          "productionCost": 165
+        },
+        {
+          "type": "UNIT_INTI_MACEMAN",
+          "combat": 26,
+          "rangedCombat": 0,
+          "productionCost": 165
+        },
+        {
+          "type": "UNIT_ETHIOPIAN_MEHAL_SEFARI",
+          "combat": 44,
+          "rangedCombat": 0,
+          "productionCost": 625
+        },
+                {
+          "type": "UNIT_REDCOAT",
+          "combat": 42,
+          "rangedCombat": 0,
+          "productionCost": 625
+        }
+      ]
+    },
+    {
+      "chainName": "Ranged",
+      "units": [
+        {
+          "type": "UNIT_MAYAN_ATLATLIST",
+          "combat": 12,
+          "rangedCombat": 14,
+          "productionCost": 110
+        },
+        {
+          "type": "UNIT_COMPOSITE_BOWMAN",
+          "combat": 11,
+          "rangedCombat": 14,
+          "productionCost": 110
+        },
+        {
+          "type": "UNIT_CROSSBOWMAN",
+          "combat": 15,
+          "rangedCombat": 20,
+          "productionCost": 160
+        },
+        {
+          "type": "UNIT_CHINESE_CHUKONU",
+          "combat": 16,
+          "rangedCombat": 20,
+          "productionCost": 160
+        },
+        {
+          "type": "UNIT_ENGLISH_LONGBOWMAN",
+          "combat": 16,
+          "rangedCombat": 20,
+          "productionCost": 160
+        },
+        {
+          "type": "UNIT_SOFA",
+          "combat": 15,
+          "rangedCombat": 20,
+          "productionCost": 160
+        },
+        {
+          "type": "UNIT_MUSKETMAN",
+          "combat": 21,
+          "rangedCombat": 29,
+          "productionCost": 325
+        },
+        {
+          "type": "UNIT_AMERICAN_MINUTEMAN",
+          "combat": 22,
+          "rangedCombat": 30,
+          "productionCost": 325
+        },
+        {
+          "type": "UNIT_OTTOMAN_JANISSARY",
+          "combat": 23,
+          "rangedCombat": 30,
+          "productionCost": 325
+        },
+        {
+          "type": "UNIT_PROWLER",
+          "combat": 21,
+          "rangedCombat": 31,
+          "productionCost": 325
+        },
+        {
+          "type": "UNIT_GATLINGGUN",
+          "combat": 32,
+          "rangedCombat": 44,
+          "productionCost": 700
+        },
+        {
+          "type": "UNIT_CACADOR",
+          "combat": 32,
+          "rangedCombat": 44,
+          "productionCost": 700
+        },
+        {
+          "type": "UNIT_MACHINE_GUN",
+          "combat": 45,
+          "rangedCombat": 58,
+          "productionCost": 950
+        },
+        {
+          "type": "UNIT_BAZOOKA",
+          "combat": 60,
+          "rangedCombat": 80,
+          "productionCost": 1800
+        },
+        {
+          "type": "UNIT_INCAN_SLINGER",
+          "combat": 5,
+          "rangedCombat": 7,
+          "productionCost": 40
+        },
+        {
+          "type": "UNIT_WARAKAQ",
+          "combat": 6,
+          "rangedCombat": 7,
+          "productionCost": 40
+        },
+        {
+          "type": "UNIT_ARCHER",
+          "combat": 6,
+          "rangedCombat": 9,
+          "productionCost": 70
+        },
+        {
+          "type": "UNIT_BABYLONIAN_BOWMAN",
+          "combat": 8,
+          "rangedCombat": 10,
+          "productionCost": 70
+        },
+        {
+          "type": "UNIT_DHANURDHARA",
+          "combat": 7,
+          "rangedCombat": 11,
+          "productionCost": 70
+        }
+      ]
+    },
+    {
+      "chainName": "Mounted/Armor",
+      "units": [
+        {
+          "type": "UNIT_KNIGHT",
+          "combat": 24,
+          "rangedCombat": 0,
+          "productionCost": 175
+        },
+        {
+          "type": "UNIT_SIAMESE_WARELEPHANT",
+          "combat": 26,
+          "rangedCombat": 0,
+          "productionCost": 175
+        },
+        {
+          "type": "UNIT_SONGHAI_MUSLIMCAVALRY",
+          "combat": 25,
+          "rangedCombat": 0,
+          "productionCost": 175
+        },
+        {
+          "type": "UNIT_BYZANTINE_CATAPHRACT",
+          "combat": 28,
+          "rangedCombat": 0,
+          "productionCost": 175
+        },
+        {
+          "type": "UNIT_BLACK_TUG",
+          "combat": 25,
+          "rangedCombat": 0,
+          "productionCost": 175
+        },
+        {
+          "type": "UNIT_LANCER",
+          "combat": 36,
+          "rangedCombat": 0,
+          "productionCost": 410
+        },
+        {
+          "type": "UNIT_POLISH_WINGED_HUSSAR",
+          "combat": 39,
+          "rangedCombat": 0,
+          "productionCost": 420
+        },
+        {
+          "type": "UNIT_MAMLUK",
+          "combat": 37,
+          "rangedCombat": 0,
+          "productionCost": 420
+        },
+        {
+          "type": "UNIT_QIZILBASH",
+          "combat": 40,
+          "rangedCombat": 0,
+          "productionCost": 420
+        },
+        {
+          "type": "UNIT_WWI_TANK",
+          "combat": 60,
+          "rangedCombat": 0,
+          "productionCost": 1100
+        },
+        {
+          "type": "UNIT_TANK",
+          "combat": 80,
+          "rangedCombat": 0,
+          "productionCost": 1800
+        },
+        {
+          "type": "UNIT_GERMAN_PANZER",
+          "combat": 82,
+          "rangedCombat": 0,
+          "productionCost": 1800
+        },
+        {
+          "type": "UNIT_MODERN_ARMOR",
+          "combat": 100,
+          "rangedCombat": 0,
+          "productionCost": 2500
+        },
+        {
+          "type": "UNIT_MECH",
+          "combat": 125,
+          "rangedCombat": 0,
+          "productionCost": 3000
+        },
+        {
+          "type": "UNIT_HORSEMAN",
+          "combat": 14,
+          "rangedCombat": 0,
+          "productionCost": 90
+        },
+        {
+          "type": "UNIT_TARKHAN",
+          "combat": 15,
+          "rangedCombat": 0,
+          "productionCost": 90
+        },
+        {
+          "type": "UNIT_CARTHAGINIAN_FOREST_ELEPHANT",
+          "combat": 17,
+          "rangedCombat": 0,
+          "productionCost": 120
+        }
+      ]
+    },
+    {
+      "chainName": "Skirmisher/Cavalry",
+      "units": [
+        {
+          "type": "UNIT_MONGOLIAN_KESHIK",
+          "combat": 12,
+          "rangedCombat": 9,
+          "productionCost": 100
+        },
+        {
+          "type": "UNIT_HUN_HORSE_ARCHER",
+          "combat": 13,
+          "rangedCombat": 10,
+          "productionCost": 100
+        },
+        {
+          "type": "UNIT_SCYTHED_CHARIOT",
+          "combat": 12,
+          "rangedCombat": 13,
+          "productionCost": 100
+        },
+        {
+          "type": "UNIT_ARABIAN_CAMELARCHER",
+          "combat": 19,
+          "rangedCombat": 16,
+          "productionCost": 175
+        },
+        {
+          "type": "UNIT_HEAVY_SKIRMISHER",
+          "combat": 17,
+          "rangedCombat": 14,
+          "productionCost": 175
+        },
+        {
+          "type": "UNIT_PANCERNY",
+          "combat": 19,
+          "rangedCombat": 15,
+          "productionCost": 175
+        },
+        {
+          "type": "UNIT_OTTOMAN_SIPAHI",
+          "combat": 39,
+          "rangedCombat": 0,
+          "productionCost": 420
+        },
+        {
+          "type": "UNIT_INDIAN_WARELEPHANT",
+          "combat": 30,
+          "rangedCombat": 30,
+          "productionCost": 350
+        },
+        {
+          "type": "UNIT_AUSTRIAN_HUSSAR",
+          "combat": 28,
+          "rangedCombat": 23,
+          "productionCost": 350
+        },
+        {
+          "type": "UNIT_SWEDISH_HAKKAPELIITTA",
+          "combat": 28,
+          "rangedCombat": 25,
+          "productionCost": 350
+        },
+        {
+          "type": "UNIT_CUIRASSIER",
+          "combat": 27,
+          "rangedCombat": 22,
+          "productionCost": 350
+        },
+        {
+          "type": "UNIT_OROMO_CAVALRY",
+          "combat": 30,
+          "rangedCombat": 26,
+          "productionCost": 350
+        },
+        {
+          "type": "UNIT_FRENCH_FOREIGNLEGION",
+          "combat": 40,
+          "rangedCombat": 0,
+          "productionCost": 625
+        },
+        {
+          "type": "UNIT_CAVALRY",
+          "combat": 40,
+          "rangedCombat": 31,
+          "productionCost": 800
+        },
+        {
+          "type": "UNIT_RUSSIAN_COSSACK",
+          "combat": 44,
+          "rangedCombat": 37,
+          "productionCost": 800
+        },
+        {
+          "type": "UNIT_BERBER_CAVALRY",
+          "combat": 42,
+          "rangedCombat": 34,
+          "productionCost": 800
+        },
+        {
+          "type": "UNIT_SHOSHONE_COMANCHE_RIDERS",
+          "combat": 41,
+          "rangedCombat": 35,
+          "productionCost": 800
+        },
+        {
+          "type": "UNIT_ANTI_TANK_GUN",
+          "combat": 58,
+          "rangedCombat": 52,
+          "productionCost": 1300
+        },
+        {
+          "type": "UNIT_HASHEMITE_RAIDER",
+          "combat": 58,
+          "rangedCombat": 52,
+          "productionCost": 1300
+        },
+        {
+          "type": "UNIT_HELICOPTER_GUNSHIP",
+          "combat": 70,
+          "rangedCombat": 70,
+          "productionCost": 2250
+        },
+        {
+          "type": "UNIT_GREEK_COMPANIONCAVALRY",
+          "combat": 17,
+          "rangedCombat": 0,
+          "productionCost": 175
+        },
+        {
+          "type": "UNIT_CHARIOT_ARCHER",
+          "combat": 8,
+          "rangedCombat": 8,
+          "productionCost": 55
+        },
+        {
+          "type": "UNIT_EGYPTIAN_WARCHARIOT",
+          "combat": 9,
+          "rangedCombat": 9,
+          "productionCost": 55
+        }
+      ]
+    },
+    {
+      "chainName": "Siege",
+      "units": [
+        {
+          "type": "UNIT_HUN_BATTERING_RAM",
+          "combat": 17,
+          "rangedCombat": 0,
+          "productionCost": 175
+        },
+        {
+          "type": "UNIT_CATAPULT",
+          "combat": 5,
+          "rangedCombat": 13,
+          "productionCost": 100
+        },
+        {
+          "type": "UNIT_ROMAN_BALLISTA",
+          "combat": 8,
+          "rangedCombat": 14,
+          "productionCost": 100
+        },
+        {
+          "type": "UNIT_TREBUCHET",
+          "combat": 8,
+          "rangedCombat": 20,
+          "productionCost": 175
+        },
+        {
+          "type": "UNIT_KOREAN_HWACHA",
+          "combat": 15,
+          "rangedCombat": 20,
+          "productionCost": 175
+        },
+        {
+          "type": "UNIT_CANNON",
+          "combat": 11,
+          "rangedCombat": 29,
+          "productionCost": 350
+        },
+        {
+          "type": "UNIT_GREAT_BOMBARD",
+          "combat": 11,
+          "rangedCombat": 43,
+          "productionCost": 400
+        },
+        {
+          "type": "UNIT_FIELD_GUN",
+          "combat": 17,
+          "rangedCombat": 40,
+          "productionCost": 900
+        },
+        {
+          "type": "UNIT_LICORNE",
+          "combat": 17,
+          "rangedCombat": 45,
+          "productionCost": 900
+        },
+        {
+          "type": "UNIT_SUEA_MOP",
+          "combat": 19,
+          "rangedCombat": 45,
+          "productionCost": 900
+        },
+        {
+          "type": "UNIT_ARTILLERY",
+          "combat": 27,
+          "rangedCombat": 50,
+          "productionCost": 1300
+        },
+        {
+          "type": "UNIT_KRUPP_GUN",
+          "combat": 27,
+          "rangedCombat": 55,
+          "productionCost": 1300
+        },
+        {
+          "type": "UNIT_ROCKET_ARTILLERY",
+          "combat": 37,
+          "rangedCombat": 75,
+          "productionCost": 2250
+        },
+        {
+          "type": "UNIT_IRON_CHARIOT",
+          "combat": 17,
+          "rangedCombat": 0,
+          "productionCost": 100
+        }
+      ]
+    },
+    {
+      "chainName": "Recon",
+      "units": [
+        {
+          "type": "UNIT_SCOUT",
+          "combat": 10,
+          "rangedCombat": 0,
+          "productionCost": 90
+        },
+        {
+          "type": "UNIT_SPANISH_CONQUISTADOR",
+          "combat": 22,
+          "rangedCombat": 0,
+          "productionCost": 160
+        },
+        {
+          "type": "UNIT_EXPLORER",
+          "combat": 17,
+          "rangedCombat": 0,
+          "productionCost": 160
+        },
+        {
+          "type": "UNIT_BANDEIRANTE",
+          "combat": 20,
+          "rangedCombat": 0,
+          "productionCost": 160
+        },
+        {
+          "type": "UNIT_DANISH_SKI_INFANTRY",
+          "combat": 42,
+          "rangedCombat": 0,
+          "productionCost": 625
+        },
+        {
+          "type": "UNIT_COMMANDO",
+          "combat": 32,
+          "rangedCombat": 0,
+          "productionCost": 625
+        },
+        {
+          "type": "UNIT_KLEPHT",
+          "combat": 34,
+          "rangedCombat": 0,
+          "productionCost": 625
+        },
+        {
+          "type": "UNIT_PARATROOPER",
+          "combat": 42,
+          "rangedCombat": 0,
+          "productionCost": 950
+        },
+        {
+          "type": "UNIT_BRAZILIAN_PRACINHA",
+          "combat": 62,
+          "rangedCombat": 0,
+          "productionCost": 950
+        },
+        {
+          "type": "UNIT_MARINE",
+          "combat": 65,
+          "rangedCombat": 0,
+          "productionCost": 1500
+        },
+        {
+          "type": "UNIT_XCOM_SQUAD",
+          "combat": 75,
+          "rangedCombat": 0,
+          "productionCost": 2600
+        },
+        {
+          "type": "UNIT_SHOSHONE_PATHFINDER",
+          "combat": 6,
+          "rangedCombat": 0,
+          "productionCost": 40
+        },
+        {
+          "type": "UNIT_HOLKAN",
+          "combat": 8,
+          "rangedCombat": 0,
+          "productionCost": 40
+        }
+      ]
+    },
+    {
+      "chainName": "Naval Melee",
+      "units": [
+        {
+          "type": "UNIT_TRIREME",
+          "combat": 18,
+          "rangedCombat": 0,
+          "productionCost": 115
+        },
+        {
+          "type": "UNIT_CARTHAGINIAN_QUINQUEREME",
+          "combat": 20,
+          "rangedCombat": 0,
+          "productionCost": 115
+        },
+        {
+          "type": "UNIT_CARAVEL",
+          "combat": 25,
+          "rangedCombat": 0,
+          "productionCost": 175
+        },
+        {
+          "type": "UNIT_PORTUGUESE_NAU",
+          "combat": 30,
+          "rangedCombat": 0,
+          "productionCost": 175
+        },
+        {
+          "type": "UNIT_LONGSHIP",
+          "combat": 30,
+          "rangedCombat": 0,
+          "productionCost": 175
+        },
+        {
+          "type": "UNIT_KOREAN_TURTLE_SHIP",
+          "combat": 32,
+          "rangedCombat": 0,
+          "productionCost": 190
+        },
+        {
+          "type": "UNIT_DUTCH_SEA_BEGGAR",
+          "combat": 42,
+          "rangedCombat": 0,
+          "productionCost": 350
+        },
+        {
+          "type": "UNIT_PRIVATEER",
+          "combat": 40,
+          "rangedCombat": 0,
+          "productionCost": 350
+        },
+        {
+          "type": "UNIT_CORSAIR",
+          "combat": 42,
+          "rangedCombat": 0,
+          "productionCost": 350
+        },
+        {
+          "type": "UNIT_ARMADA",
+          "combat": 42,
+          "rangedCombat": 0,
+          "productionCost": 350
+        },
+        {
+          "type": "UNIT_IRONCLAD",
+          "combat": 60,
+          "rangedCombat": 0,
+          "productionCost": 900
+        },
+        {
+          "type": "UNIT_MONITOR",
+          "combat": 66,
+          "rangedCombat": 0,
+          "productionCost": 900
+        },
+        {
+          "type": "UNIT_AMAZONAS",
+          "combat": 63,
+          "rangedCombat": 0,
+          "productionCost": 900
+        },
+        {
+          "type": "UNIT_DESTROYER",
+          "combat": 75,
+          "rangedCombat": 0,
+          "productionCost": 1300
+        },
+        {
+          "type": "UNIT_FLEET_DESTROYER",
+          "combat": 90,
+          "rangedCombat": 0,
+          "productionCost": 1800
+        },
+        {
+          "type": "UNIT_SENSOR_COMBAT_SHIP",
+          "combat": 110,
+          "rangedCombat": 0,
+          "productionCost": 2500
+        },
+        {
+          "type": "UNIT_GALLEY",
+          "combat": 12,
+          "rangedCombat": 0,
+          "productionCost": 70
+        },
+        {
+          "type": "UNIT_VP_GALLEY",
+          "combat": 12,
+          "rangedCombat": 0,
+          "productionCost": 70
+        },
+        {
+          "type": "UNIT_VAKA_NUI",
+          "combat": 14,
+          "rangedCombat": 0,
+          "productionCost": 70
+        }
+      ]
+    },
+    {
+      "chainName": "Naval Ranged",
+      "units": [
+        {
+          "type": "UNIT_BYZANTINE_DROMON",
+          "combat": 9,
+          "rangedCombat": 19,
+          "productionCost": 110
+        },
+        {
+          "type": "UNIT_LIBURNA",
+          "combat": 8,
+          "rangedCombat": 16,
+          "productionCost": 110
+        },
+        {
+          "type": "UNIT_FUSTA",
+          "combat": 14,
+          "rangedCombat": 21,
+          "productionCost": 125
+        },
+        {
+          "type": "UNIT_GALLEASS",
+          "combat": 14,
+          "rangedCombat": 24,
+          "productionCost": 190
+        },
+        {
+          "type": "UNIT_DJONG",
+          "combat": 18,
+          "rangedCombat": 25,
+          "productionCost": 210
+        },
+        {
+          "type": "UNIT_VENETIAN_GALLEASS",
+          "combat": 20,
+          "rangedCombat": 30,
+          "productionCost": 250
+        },
+        {
+          "type": "UNIT_FRIGATE",
+          "combat": 25,
+          "rangedCombat": 35,
+          "productionCost": 375
+        },
+        {
+          "type": "UNIT_ENGLISH_SHIPOFTHELINE",
+          "combat": 28,
+          "rangedCombat": 38,
+          "productionCost": 375
+        },
+        {
+          "type": "UNIT_TREASURE_SHIP",
+          "combat": 28,
+          "rangedCombat": 37,
+          "productionCost": 500
+        },
+        {
+          "type": "UNIT_CRUISER",
+          "combat": 47,
+          "rangedCombat": 63,
+          "productionCost": 1150
+        },
+        {
+          "type": "UNIT_DREADNOUGHT",
+          "combat": 60,
+          "rangedCombat": 77,
+          "productionCost": 1700
+        },
+        {
+          "type": "UNIT_MIKASA",
+          "combat": 61,
+          "rangedCombat": 85,
+          "productionCost": 1700
+        },
+        {
+          "type": "UNIT_YAMATO",
+          "combat": 80,
+          "rangedCombat": 100,
+          "productionCost": 2400
+        },
+        {
+          "type": "UNIT_CARRIER",
+          "combat": 70,
+          "rangedCombat": 45,
+          "productionCost": 1800
+        },
+        {
+          "type": "UNIT_BATTLESHIP",
+          "combat": 70,
+          "rangedCombat": 85,
+          "productionCost": 2300
+        },
+        {
+          "type": "UNIT_MISSILE_CRUISER",
+          "combat": 75,
+          "rangedCombat": 90,
+          "productionCost": 2500
+        },
+        {
+          "type": "UNIT_SUPERCARRIER",
+          "combat": 90,
+          "rangedCombat": 75,
+          "productionCost": 4000
+        }
+      ]
+    },
+    {
+      "chainName": "Submarine",
+      "units": [
+        {
+          "type": "UNIT_SUBMARINE",
+          "combat": 40,
+          "rangedCombat": 65,
+          "productionCost": 1300
+        },
+        {
+          "type": "UNIT_ATTACK_SUBMARINE",
+          "combat": 50,
+          "rangedCombat": 80,
+          "productionCost": 1800
+        },
+        {
+          "type": "UNIT_NUCLEAR_SUBMARINE",
+          "combat": 60,
+          "rangedCombat": 100,
+          "productionCost": 2500
+        }
+      ]
+    },
+    {
+      "chainName": "Fighter",
+      "units": [
+        {
+          "type": "UNIT_TRIPLANE",
+          "combat": 0,
+          "rangedCombat": 45,
+          "productionCost": 800
+        },
+        {
+          "type": "UNIT_SPAD",
+          "combat": 0,
+          "rangedCombat": 50,
+          "productionCost": 800
+        },
+        {
+          "type": "UNIT_FIGHTER",
+          "combat": 0,
+          "rangedCombat": 60,
+          "productionCost": 1400
+        },
+        {
+          "type": "UNIT_JAPANESE_ZERO",
+          "combat": 0,
+          "rangedCombat": 60,
+          "productionCost": 1400
+        },
+        {
+          "type": "UNIT_AMERICAN_B17",
+          "combat": 0,
+          "rangedCombat": 70,
+          "productionCost": 1500
+        },
+        {
+          "type": "UNIT_JET_FIGHTER",
+          "combat": 0,
+          "rangedCombat": 70,
+          "productionCost": 2100
+        }
+      ]
+    },
+    {
+      "chainName": "Bomber",
+      "units": [
+        {
+          "type": "UNIT_WWI_BOMBER",
+          "combat": 0,
+          "rangedCombat": 50,
+          "productionCost": 850
+        },
+        {
+          "type": "UNIT_ROCKET_MISSILE",
+          "combat": 0,
+          "rangedCombat": 120,
+          "productionCost": 400
+        },
+        {
+          "type": "UNIT_BOMBER",
+          "combat": 0,
+          "rangedCombat": 65,
+          "productionCost": 1500
+        },
+        {
+          "type": "UNIT_GUIDED_MISSILE",
+          "combat": 0,
+          "rangedCombat": 180,
+          "productionCost": 1200
+        },
+        {
+          "type": "UNIT_STEALTH_BOMBER",
+          "combat": 0,
+          "rangedCombat": 80,
+          "productionCost": 2200
+        }
+      ]
+    },
+    {
+      "chainName": "Anti-Air",
+      "units": [
+        {
+          "type": "UNIT_ANTI_AIRCRAFT_GUN",
+          "combat": 40,
+          "rangedCombat": 0,
+          "productionCost": 950
+        },
+        {
+          "type": "UNIT_MOBILE_SAM",
+          "combat": 55,
+          "rangedCombat": 0,
+          "productionCost": 1800
+        }
+      ]
+    }
+  ]
+}

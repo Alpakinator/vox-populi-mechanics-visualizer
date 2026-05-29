@@ -1,6 +1,7 @@
 // Re-export types for convenient access via $lib
 export * from './types/civilopedia';
 export * from './types/game-context';
+export * from './types/population-growth';
 
 // Re-export utilities
 export { createThrottle, createDebounce } from './utils/throttle';

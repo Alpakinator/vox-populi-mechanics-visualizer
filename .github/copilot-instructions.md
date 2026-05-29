@@ -13,7 +13,7 @@ Agents must never attempt to use MCP servers.
 - **Framework**: SvelteKit with adapter-static (no SSR, pure client-side)
 - **Graphing**: Plotly.js for interactive 2D graphs with slider controls
 - **Data Source**: `src/lib/data/civilopedia_export.json` (55,998 lines, comprehensive game database)
-- **Styling**: Custom font `src/lib/fonts/Tw Cen MT.ttf`, Civ5 UI assets in `static/civ5_assets/`
+- **Styling**: Custom font `src/lib/fonts/Tw Cen MT.ttf`, Civ5 UI assets in `static/civ5_assets/`, and shared UI conventions documented in `.github/instructions/design-language.instructions.md`
 - **Language**: TypeScript strict mode, Svelte 5 runes
 
 ## Project Structure

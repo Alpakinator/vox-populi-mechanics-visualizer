@@ -29,8 +29,10 @@
 		type HurryModifierSource
 	} from '$lib/utils/hurry-modifiers';
 	import civilopediaData from '$lib/data/civilopedia_export.json';
+	import unitRebalancePresetData from '$lib/data/unit-rebalance-preset.json';
 	import type { Unit, Building, Technology } from '$lib/types/civilopedia';
 	import { buildUpgradeChains, type UpgradeChain, type CombatUnitData } from '$lib/utils/unit-upgrade-chains';
+	import PopulationGrowthMode from '$lib/components/PopulationGrowthMode.svelte';
 
 	// =============================================================================
 	// TYPES
@@ -66,6 +68,22 @@
 		civilizationName?: string;
 		modifiers: UnitProductionModifier[];
 		defaultEnabled: boolean;
+	}
+
+	interface UnitRebalanceOverride {
+		type: string;
+		combat?: number;
+		rangedCombat?: number;
+		productionCost?: number;
+	}
+
+	interface UnitRebalancePresetFile {
+		name?: string;
+		description?: string;
+		groups: Array<{
+			chainName: string;
+			units: UnitRebalanceOverride[];
+		}>;
 	}
 
 	// =============================================================================
@@ -119,8 +137,8 @@
 	let pageContainer: HTMLDivElement | undefined = $state();
 
 	// Dropdown for graph selection
-	type GraphMode = 'gold-vs-production' | 'ratio-vs-gridx' | 'combat-efficiency';
-	let graphMode: GraphMode = $state('combat-efficiency');
+	type GraphMode = 'gold-vs-production' | 'ratio-vs-gridx' | 'combat-efficiency' | 'population-growth';
+	let graphMode: GraphMode = $state('population-growth');
 
 	// Combat efficiency sub-mode toggle
 	type CombatSubMode = 'ratio-vs-gridx' | 'strength-vs-cost';
@@ -133,6 +151,9 @@
 	// X-axis scale for beeline science / production cost axes
 	type XAxisScale = 'linear' | 'sqrt' | 'log';
 	let xAxisScale: XAxisScale = $state('sqrt');
+
+	// Optional rebalance preset loaded from JSON
+	let useRebalancePreset = $state(false);
 
 	// Hurry modifier toggles
 	let enabledHurryModifiers = $state(new Set<string>());
@@ -195,6 +216,13 @@
 	// Beeline science costs: cumulative science to research a tech and all its prerequisites
 	const beelineScienceCosts = buildBeelineScienceCosts(
 		(civilopediaData as { technologies: Technology[] }).technologies
+	);
+
+	const unitRebalancePreset = unitRebalancePresetData as UnitRebalancePresetFile;
+	const unitRebalancePresetOverrides = new Map(
+		unitRebalancePreset.groups.flatMap((group) => 
+			group.units.map((override) => [override.type, override])
+		)
 	);
 
 	/**
@@ -722,9 +750,10 @@
 		primaryStrength: number;
 	} {
 		const override = unitOverrides.get(unit.type);
-		const combat = override?.combat ?? unit.combat;
-		const rangedCombat = override?.rangedCombat ?? unit.rangedCombat;
-		const productionCost = override?.productionCost ?? unit.productionCost;
+		const presetOverride = useRebalancePreset ? unitRebalancePresetOverrides.get(unit.type) : undefined;
+		const combat = override?.combat ?? presetOverride?.combat ?? unit.combat;
+		const rangedCombat = override?.rangedCombat ?? presetOverride?.rangedCombat ?? unit.rangedCombat;
+		const productionCost = override?.productionCost ?? presetOverride?.productionCost ?? unit.productionCost;
 		const productionModifierPercent = getProductionModifierPercentForUnit(unit.type);
 		const effectiveProductionCost = productionCost / (1 + productionModifierPercent / 100);
 		return {
@@ -748,6 +777,28 @@
 	function resetOverrides() {
 		unitOverrides = new Map();
 		overrideVersion++;
+	}
+
+	/**
+	 * Determine the source of a unit field value:
+	 * - 'user': User override (unitOverrides takes precedence)
+	 * - 'preset': Preset override (when useRebalancePreset is true)
+	 * - 'original': Base civilopedia value
+	 */
+	function getValueSource(unit: CombatUnitData, field: 'combat' | 'rangedCombat' | 'productionCost'): 'user' | 'preset' | 'original' {
+		if (unitOverrides.has(unit.type)) {
+			const override = unitOverrides.get(unit.type);
+			if (override?.[field] !== undefined) {
+				return 'user';
+			}
+		}
+		if (useRebalancePreset) {
+			const presetOverride = unitRebalancePresetOverrides.get(unit.type);
+			if (presetOverride?.[field] !== undefined) {
+				return 'preset';
+			}
+		}
+		return 'original';
 	}
 
 	/**
@@ -1570,12 +1621,15 @@
 	function getPlotDataForMode() {
 		if (graphMode === 'gold-vs-production') return buildPlotData();
 		if (graphMode === 'combat-efficiency') return buildCombatEfficiencyPlotData();
-		return buildRatioVsGridXPlotData();
+		if (graphMode === 'ratio-vs-gridx') return buildRatioVsGridXPlotData();
+		return null;
 	}
 
 	const throttledUpdate = createThrottle(() => {
-		if (!plotDiv || !initialized) return;
-		const { traces, layout } = getPlotDataForMode();
+		if (graphMode === 'population-growth' || !plotDiv || !initialized) return;
+		const plotData = getPlotDataForMode();
+		if (!plotData) return;
+		const { traces, layout } = plotData;
 
 		// Preserve legend visibility state from current plot
 		const currentData = (plotDiv as any).data as Array<Record<string, any>> | undefined;
@@ -1599,7 +1653,7 @@
 
 	// Update graph when hurry modifiers or display options change
 	$effect(() => {
-		if (!initialized) return;
+		if (!initialized || graphMode === 'population-growth') return;
 		enabledHurryModifiers;
 		enableIndustryPolicies;
 		industryPolicyCount;
@@ -1612,12 +1666,18 @@
 		combatSubMode;
 		xAxisMode;
 		xAxisScale;
+		useRebalancePreset;
 		throttledUpdate();
 	});
 
 	// Resize Plotly when graph mode changes (panel width changes)
 	$effect(() => {
 		graphMode;
+		if (graphMode === 'population-growth') {
+			initialized = false;
+			plotDiv = undefined;
+			return;
+		}
 		if (!plotDiv || !initialized) return;
 		panelWidth = null; // reset manual width on mode change
 		const div = plotDiv;
@@ -1651,9 +1711,15 @@
 
 	// Initial render
 	$effect(() => {
+		if (graphMode === 'population-growth') {
+			return;
+		}
+
 		if (plotDiv && !initialized) {
 			initialized = true;
-			const { traces, layout } = getPlotDataForMode();
+			const plotData = getPlotDataForMode();
+			if (!plotData) return;
+			const { traces, layout } = plotData;
 			Plotly.newPlot(plotDiv, traces, layout, plotlyConfig);
 		}
 	});
@@ -1663,7 +1729,11 @@
 	<title>VP Mechanics Visualizer</title>
 </svelte:head>
 
-<div class="page-container" class:dragging={isDragging} bind:this={pageContainer}>
+
+{#if graphMode === 'population-growth'}
+	<PopulationGrowthMode bind:graphMode showGraphModeSwitcher={true} />
+{:else}
+	<div class="page-container" class:dragging={isDragging} bind:this={pageContainer}>
 	<!-- Left Panel: Controls -->
 
 	<div
@@ -1677,6 +1747,7 @@
 				<option value="gold-vs-production">Gold Cost vs Production</option>
 				<option value="ratio-vs-gridx">Gold/Production Ratio vs Tech Column</option>
 				<option value="combat-efficiency">Combat Strength / Cost Efficiency</option>
+				<option value="population-growth">Population Growth And Its Yields</option>
 			</select>
 		</div>
 
@@ -1959,6 +2030,11 @@
 		</div>
 		{/if}
 
+		<label class="preset-toggle">
+			<input type="checkbox" bind:checked={useRebalancePreset} />
+			Apply rebalance preset: {unitRebalancePreset.name}
+		</label>
+
 		<div class="modifier-buildings-section">
 			<h3>Unit Production Modifier Buildings</h3>
 			<p class="modifier-description">
@@ -2021,6 +2097,24 @@
 			</button>
 		</div>
 
+		<div class="table-legend">
+			<p><strong>Unit Parameter Table Legend:</strong></p>
+			<div class="legend-items">
+				<div class="legend-item">
+					<span class="legend-color" style="background-color: rgba(76, 158, 255, 0.12);"></span>
+					<span>User-edited value (Blue)</span>
+				</div>
+				<div class="legend-item">
+					<span class="legend-color" style="background-color: rgba(207, 175, 115, 0.12);"></span>
+					<span>From rebalance preset (Gold)</span>
+				</div>
+				<div class="legend-item">
+					<span class="legend-color" style="background-color: transparent;"></span>
+					<span>Base civilopedia value</span>
+				</div>
+			</div>
+		</div>
+
 		<div class="combat-table-container">
 			{#each upgradeChains as chain, chainIdx}
 				<div class="chain-section">
@@ -2040,13 +2134,17 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each chain.units as unit}
+							{#each chain.units as unit (unit.type)}
 								{@const eff = getEffectiveUnit(unit)}
 								{@const ratio = eff.effectiveProductionCost > 0 ? eff.primaryStrength / eff.effectiveProductionCost : 0}
-								{@const hasOverride = unitOverrides.has(unit.type)}
-								<tr class:edited={hasOverride}>
+								{@const hasUserEdit = unitOverrides.has(unit.type)}
+								{@const hasPresetOverride = useRebalancePreset && unitRebalancePresetOverrides.has(unit.type)}
+								{@const combatSource = getValueSource(unit, 'combat')}
+								{@const rangedSource = getValueSource(unit, 'rangedCombat')}
+								{@const costSource = getValueSource(unit, 'productionCost')}
+								<tr class:user-edited={hasUserEdit} class:preset-applied={hasPresetOverride && !hasUserEdit}>
 									<td class="td-name" title={unit.type}>{unit.name}</td>
-									<td class="td-stat">
+									<td class="td-stat" class:cell-preset={combatSource === 'preset'} class:cell-user={combatSource === 'user'} title="{combatSource === 'preset' ? 'From preset' : combatSource === 'user' ? 'User edited' : 'Base value'}">
 										<input
 											type="number"
 											class="stat-input"
@@ -2058,7 +2156,7 @@
 											}}
 										/>
 									</td>
-									<td class="td-stat">
+									<td class="td-stat" class:cell-preset={rangedSource === 'preset'} class:cell-user={rangedSource === 'user'} title="{rangedSource === 'preset' ? 'From preset' : rangedSource === 'user' ? 'User edited' : 'Base value'}">
 										<input
 											type="number"
 											class="stat-input"
@@ -2070,7 +2168,7 @@
 											}}
 										/>
 									</td>
-									<td class="td-cost">
+									<td class="td-cost" class:cell-preset={costSource === 'preset'} class:cell-user={costSource === 'user'} title="{costSource === 'preset' ? 'From preset' : costSource === 'user' ? 'User edited' : 'Base value'}">
 										<input
 											type="number"
 											class="stat-input cost-input"
@@ -2110,7 +2208,8 @@
 	<div class="graph-panel">
 		<div class="plot-container" bind:this={plotDiv}></div>
 	</div>
-</div>
+	</div>
+{/if}
 
 <style>
 	.page-container {
@@ -2127,7 +2226,7 @@
 		flex-direction: column;
 		gap: 0.5rem;
 		margin-bottom: 1rem;
-		padding: 1rem;
+		padding: 0.5rem;
 		background-color: rgba(100, 100, 150, 0.1);
 		border: 1px solid rgba(207, 175, 115, 1);
 	}
@@ -2141,9 +2240,10 @@
 	}
 
 	.graph-mode-select {
-		padding: 0.75rem 0.75rem;
+		padding: 0.375rem 0.375rem;
 		background-color: rgba(100, 100, 150, 0.3);
 		border: 1px solid #ffc864;
+		border-radius: 0;
 		color: rgba(250, 250, 196, 1);
 		font-family: 'Tw Cen MT', sans-serif;
 		font-size: 0.95rem;
@@ -2221,7 +2321,7 @@
 
 	.control-panel h2 {
 		margin: 0;
-		padding-bottom: 0.75rem;
+		padding-bottom: 0.375rem;
 		border-bottom: 2px solid #4a9eff;
 		font-size: 1.4rem;
 		color: rgba(250, 250, 196, 1);
@@ -2229,7 +2329,7 @@
 
 	.info-section {
 		background-color: #070b0eff;
-		padding: 1rem;
+		padding: 0.5rem;
 		
 		border: 1px solid rgba(207, 175, 115, 1);
 	}
@@ -2249,7 +2349,7 @@
 	.submode-toggle label {
 		flex: 1;
 		text-align: center;
-		padding: 0.4rem 0.5rem;
+		padding: 0.2rem 0.25rem;
 		cursor: pointer;
 		background: #070b0eff;
 		border: 1px solid rgba(207, 175, 115, 0.5);
@@ -2290,6 +2390,20 @@
 		white-space: nowrap;
 	}
 
+	.preset-toggle {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		margin-bottom: 0.75rem;
+		font-size: 0.85rem;
+		color: rgba(250, 250, 196, 0.85);
+		cursor: pointer;
+	}
+
+	.preset-toggle input[type="checkbox"] {
+		accent-color: rgba(207, 175, 115, 1);
+	}
+
 
 
 	
@@ -2318,7 +2432,7 @@
 
 
 	.formula-info {
-		padding: 1rem;
+		padding: 0.5rem;
 		border: 1px solid rgba(207, 175, 115, 1);
 	}
 
@@ -2345,7 +2459,7 @@
 	}
 
 	.tech-info {
-		padding: 1rem;
+		padding: 0.5rem;
 		border: 1px solid rgba(207, 175, 115, 1);
 	}
 
@@ -2367,7 +2481,7 @@
 	}
 
 	.hurry-modifiers {
-		padding: 1rem;
+		padding: 0.5rem;
 		border: 1px solid rgba(207, 175, 115, 1);
 	}
 
@@ -2423,7 +2537,7 @@
 
 	.slider-container {
 		margin-top: 0.75rem;
-		padding: 0.75rem;
+		padding: 0.375rem;
 		background-color: rgba(255, 200, 100, 0.05);
 	}
 
@@ -2475,7 +2589,7 @@
 
 	.modifier-note {
 		margin: 1rem 0 0 0;
-		padding: 0.75rem;
+		padding: 0.375rem;
 		background-color: rgba(100, 100, 150, 0.1);
 		border-left: 3px solid #ffc864;
 		font-size: 0.8rem;
@@ -2490,7 +2604,7 @@
 	}
 
 	.upgrade-formula {
-		padding: 1rem;
+		padding: 0.5rem;
 		border: 1px solid rgba(207, 175, 115, 1);
 	}
 
@@ -2502,7 +2616,7 @@
 
 	.formula-display {
 		background-color: rgba(230, 205, 26, 0.1);
-		padding: 0.75rem;
+		padding: 0.375rem;
 		border-left: 3px solid #e6cd1a;
 		font-family: 'Consolas', monospace;
 		font-size: 0.9rem;
@@ -2522,7 +2636,7 @@
 
 	.reset-button {
 		width: 100%;
-		padding: 0.5rem;
+		padding: 0.25rem;
 		margin-top: 0.5rem;
 		background-color: rgba(230, 205, 26, 0.2);
 		border: 1px solid #e6cd1a;
@@ -2570,7 +2684,7 @@
 	}
 
 	.modifier-buildings-section {
-		padding: 1rem;
+		padding: 0.5rem;
 		border: 1px solid rgba(207, 175, 115, 1);
 	}
 
@@ -2745,11 +2859,71 @@
 		max-width: 68px;
 	}
 
-	tr.edited {
-		background-color: rgba(230, 205, 26, 0.08);
+	/* Table legend styles */
+	.table-legend {
+		margin-bottom: 1.5rem;
+		padding: 0.375rem 0.5rem;
+		background-color: rgba(0, 0, 0, 0.2);
+		border-left: 3px solid rgba(207, 175, 115, 0.6);
+		border-radius: 4px;
+		font-size: 0.85rem;
+		color: rgba(250, 250, 196, 0.8);
 	}
 
-	tr.edited .td-name {
-		color: #e6cd1a;
+	.table-legend p {
+		margin: 0 0 0.5rem 0;
+		font-weight: 600;
+		color: rgba(250, 250, 196, 1);
+	}
+
+	.legend-items {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		gap: 1rem;
+	}
+
+	.legend-item {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.legend-color {
+		display: inline-block;
+		width: 24px;
+		height: 24px;
+		border: 1px solid rgba(207, 175, 115, 0.5);
+		border-radius: 2px;
+	}
+
+	/* User-edited rows */
+
+	tr.user-edited {
+		background-color: rgba(76, 158, 255, 0.08);
+	}
+
+	tr.user-edited .td-name {
+		color: #4c9eff;
+	}
+
+	/* Preset-applied rows (without user edits) */
+	tr.preset-applied {
+		background-color: rgba(207, 175, 115, 0.08);
+	}
+
+	tr.preset-applied .td-name {
+		color: #cfaf73;
+	}
+
+	/* Cell-level highlights for preset values */
+	td.cell-preset {
+		background-color: rgba(207, 175, 115, 0.12);
+		border-radius: 2px;
+	}
+
+	/* Cell-level highlights for user-edited values */
+	td.cell-user {
+		background-color: rgba(76, 158, 255, 0.12);
+		border-radius: 2px;
 	}
 </style>
