@@ -40,7 +40,7 @@
 		eraType: EraType;
 		eraMultiplier: number;
 		yields: Record<GrowthYieldType, BirthYieldBreakdown>;
-		/** effectiveFood / (1 + totalGrowthPct/100). Net surplus per turn you need before growth mods amplify it. */
+		/** effectiveFood / (1 + totalGrowthPct/100). Food with % growth modifier per turn you need before growth mods amplify it. */
 		growthAdjustedSurplus: number;
 		/** effectiveFood / ((1 + totalFoodPct/100) × (1 + totalGrowthPct/100)). Threshold expressed in raw base food units. */
 		baseFoodEquiv: number;
@@ -171,7 +171,7 @@
 	let cityIsCapital = $state(false);
 	let enabledBuildingTypes = $state(new Set<string>());
 
-	// Growth modifier state — all stack additively, applied to net surplus (post-consumption).
+	// Growth modifier state — all stack additively, applied to Food with % growth modifier (post-consumption).
 	// Source: CvCity.cpp:15992 getGrowthMods()
 	let isWLTKD = $state(true);
 	let rationalistOpener = $state(false);
@@ -184,6 +184,11 @@
 	let emancipationGoldenAge = $state(false);
 	let localHappinessDelta = $state(20); // net local happiness − local unhappiness; +2% growth per point
 	let tradeRouteGrowthPct = $state(0); // growth % from outgoing trade routes to cities you're influential over
+
+	// Editable growth threshold formula constants (VP defaults)
+	let formulaBase = $state(15); // BASE_CITY_GROWTH_THRESHOLD
+	let formulaMultiplier = $state(12.0); // CITY_GROWTH_MULTIPLIER
+	let formulaExponent = $state(2.22); // CITY_GROWTH_EXPONENT
 
 	// Food yield modifier state — applied to gross food BEFORE consumption.
 	// Source: CvCity.cpp:22931 getYieldRateTimes100() iModifier section
@@ -210,6 +215,20 @@
 		...BASE_CONTEXT,
 		gameSpeed: GAME_SPEED_DEFAULTS[gameSpeedType]
 	});
+
+	const editedGameContext = $derived<GameContext>({
+		...gameContext,
+		constants: {
+			...gameContext.constants,
+			BASE_CITY_GROWTH_THRESHOLD: formulaBase,
+			CITY_GROWTH_MULTIPLIER: formulaMultiplier,
+			CITY_GROWTH_EXPONENT: formulaExponent
+		}
+	});
+
+	const formulaChanged = $derived(
+		formulaBase !== 15 || formulaMultiplier !== 12.0 || formulaExponent !== 2.22
+	);
 
 	/**
 	 * Total additive growth % modifier. Applied to net food surplus (after consumption).
@@ -433,23 +452,20 @@
 		return breakdowns;
 	}
 
-	const graphPoints = $derived.by(() => {
+	function computeGraphPoints(ctx: GameContext): CitizenGrowthPoint[] {
 		const points: CitizenGrowthPoint[] = [];
 		const sortedThresholds = sortEraThresholdsByCitizen(eraThresholds);
 
 		for (let targetCitizen = Math.max(2, minCitizen + 1); targetCitizen <= maxCitizen; targetCitizen += 1) {
-			const threshold = getGrowthThreshold(targetCitizen - 1, gameContext);
-			const previousThreshold = targetCitizen > 2 ? getGrowthThreshold(targetCitizen - 2, gameContext) : 0;
+			const threshold = getGrowthThreshold(targetCitizen - 1, ctx);
+			const previousThreshold = targetCitizen > 2 ? getGrowthThreshold(targetCitizen - 2, ctx) : 0;
 			const carriedFood = targetCitizen > 2 ? Math.floor((previousThreshold * totalCarryoverPercent) / 100) : 0;
 			const eraType = getEraTypeForCitizenBirth(targetCitizen, sortedThresholds, 'ERA_ANCIENT');
-			const effectiveFood = getEffectiveFoodForCitizenBirth(targetCitizen, totalCarryoverPercent, gameContext);
+			const effectiveFood = getEffectiveFoodForCitizenBirth(targetCitizen, totalCarryoverPercent, ctx);
 
-			// Growth-adjusted: divide effectiveFood by (1 + g%) to get the pre-modifier surplus target.
 			const growthAdjustedSurplus =
 				totalGrowthPct > 0 ? Math.round((effectiveFood * 100) / (100 + totalGrowthPct)) : effectiveFood;
 
-			// Base food equivalent: effectiveFood threshold expressed in raw base food units.
-			// = effectiveFood / ((1 + food%) × (1 + growth%))
 			const totalFoodPct = computeTotalFoodPct(targetCitizen);
 			const combinedMultiplier = ((100 + totalFoodPct) / 100) * ((100 + totalGrowthPct) / 100);
 			const baseFoodEquiv = Math.round(effectiveFood / combinedMultiplier);
@@ -469,7 +485,10 @@
 		}
 
 		return points;
-	});
+	}
+
+	const graphPoints = $derived.by(() => computeGraphPoints(gameContext));
+	const editedGraphPoints = $derived.by(() => computeGraphPoints(editedGameContext));
 
 	function buildGrowthPlot() {
 		const showGrowthAdj = totalGrowthPct > 0;
@@ -479,7 +498,7 @@
 			{
 				type: 'scatter',
 				mode: 'lines',
-				name: 'Food to Accumulate',
+				name: 'Food without % modifiers',
 				x: graphPoints.map((point) => point.targetCitizen - 1),
 				y: graphPoints.map((point) => point.effectiveFood),
 				line: { color: '#ffc864', width: 2.5, shape: 'spline', smoothing: 0.5 },
@@ -491,7 +510,7 @@
 					point.targetCitizen
 				]),
 				hovertemplate:
-					'Food to accumulate: %{y}<br>' +
+					'Food without % modifiers: %{y}<br>' +
 					'Raw threshold: %{customdata[0]}<br>' +
 					'Carried from previous birth: %{customdata[1]}<br>' +
 					'Era step: %{customdata[2]} (x%{customdata[3]})<extra></extra>'
@@ -502,14 +521,14 @@
 			traces.push({
 				type: 'scatter',
 				mode: 'lines',
-				name: 'Net Surplus Needed (growth-adj)',
+				name: 'Food with % growth modifier Needed (growth-adj)',
 				x: graphPoints.map((point) => point.targetCitizen - 1),
 				y: graphPoints.map((point) => point.growthAdjustedSurplus),
 				line: { color: '#7ecb4d', width: 2, dash: 'dash' },
 				customdata: graphPoints.map((point) => [point.effectiveFood, totalGrowthPct]),
 				hovertemplate:
 					'Surplus needed (pre-growth-mod): %{y}<br>' +
-					'Raw food to accumulate: %{customdata[0]}<br>' +
+					'Raw Food without % modifiers: %{customdata[0]}<br>' +
 					'Growth modifier: +%{customdata[1]}%<extra></extra>'
 			});
 		}
@@ -518,7 +537,7 @@
 			traces.push({
 				type: 'scatter',
 				mode: 'lines',
-				name: 'Base Food Equivalent',
+				name: 'Food with % food & growth modifier',
 				x: graphPoints.map((point) => point.targetCitizen - 1),
 				y: graphPoints.map((point) => point.baseFoodEquiv),
 				line: { color: '#cf7be8', width: 2, dash: 'dot' },
@@ -528,8 +547,8 @@
 					totalGrowthPct
 				]),
 				hovertemplate:
-					'Base food equivalent: %{y}<br>' +
-					'Food to accumulate: %{customdata[0]}<br>' +
+					'Food with % food & growth modifier: %{y}<br>' +
+					'Food without % modifiers: %{customdata[0]}<br>' +
 					'Food yield bonus: +%{customdata[1]}%<br>' +
 					'Growth bonus: +%{customdata[2]}%<extra></extra>'
 			});
@@ -539,6 +558,55 @@
 		if (totalGrowthPct > 0) annotationLines.push(`Growth bonus: +${totalGrowthPct}%`);
 		const sampleFoodPct = graphPoints.length > 0 ? graphPoints[Math.floor(graphPoints.length / 2)].totalFoodPct : 0;
 		if (sampleFoodPct > 0) annotationLines.push(`Food yield bonus: +${sampleFoodPct}%`);
+
+		// Edited-formula comparison traces
+		if (formulaChanged) {
+			traces.push({
+				type: 'scatter',
+				mode: 'lines',
+				name: 'Food without % modifiers (edited)',
+				x: editedGraphPoints.map((p) => p.targetCitizen - 1),
+				y: editedGraphPoints.map((p) => p.effectiveFood),
+				line: { color: '#ff7070', width: 2, dash: 'dashdot' },
+				customdata: editedGraphPoints.map((p) => [p.threshold, p.carriedFood, ERA_DEFAULTS[p.eraType].name, p.eraMultiplier]),
+				hovertemplate:
+					'Food without % modifiers (edited): %{y}<br>' +
+					'Raw threshold: %{customdata[0]}<br>' +
+					'Carried: %{customdata[1]}<br>' +
+					'Era: %{customdata[2]} (x%{customdata[3]})<extra></extra>'
+			});
+			if (showGrowthAdj) {
+				traces.push({
+					type: 'scatter',
+					mode: 'lines',
+					name: 'Food with % growth modifier Needed (edited)',
+					x: editedGraphPoints.map((p) => p.targetCitizen - 1),
+					y: editedGraphPoints.map((p) => p.growthAdjustedSurplus),
+					line: { color: '#60c8e8', width: 2, dash: 'dashdot' },
+					customdata: editedGraphPoints.map((p) => [p.effectiveFood, totalGrowthPct]),
+					hovertemplate:
+						'Surplus needed — edited: %{y}<br>' +
+						'Raw food (edited): %{customdata[0]}<br>' +
+						'Growth modifier: +%{customdata[1]}%<extra></extra>'
+				});
+			}
+			if (showBaseFood) {
+				traces.push({
+					type: 'scatter',
+					mode: 'lines',
+					name: 'Base Food Equiv (edited)',
+					x: editedGraphPoints.map((p) => p.targetCitizen - 1),
+					y: editedGraphPoints.map((p) => p.baseFoodEquiv),
+					line: { color: '#e8a060', width: 2, dash: 'dashdot' },
+					customdata: editedGraphPoints.map((p) => [p.effectiveFood, p.totalFoodPct, totalGrowthPct]),
+					hovertemplate:
+						'Base food equiv (edited): %{y}<br>' +
+						'Food without % modifiers: %{customdata[0]}<br>' +
+						'Food yield bonus: +%{customdata[1]}%<br>' +
+						'Growth bonus: +%{customdata[2]}%<extra></extra>'
+				});
+			}
+		}
 
 		return {
 			traces,
@@ -603,17 +671,18 @@
 	}
 
 	function buildRatioPlot() {
+		const pts = formulaChanged ? editedGraphPoints : graphPoints;
 		const traces = GRAPH_YIELDS.map((yieldInfo) => ({
 			type: 'scatter',
 			mode: 'lines',
 			name: yieldInfo.label,
-			x: graphPoints.map((point) => point.targetCitizen - 1),
-			y: graphPoints.map((point) => {
+			x: pts.map((point) => point.targetCitizen - 1),
+			y: pts.map((point) => {
 				const amount = point.yields[yieldInfo.type].amount;
 				return amount > 0 && point.baseFoodEquiv > 0 ? amount / point.baseFoodEquiv : null;
 			}),
 			line: { color: yieldInfo.color, width: 2.5, shape: 'spline', smoothing: 0.45 },
-			customdata: graphPoints.map((point) => [
+			customdata: pts.map((point) => [
 				point.yields[yieldInfo.type].amount,
 				point.baseFoodEquiv,
 				ERA_DEFAULTS[point.eraType].name,
@@ -624,7 +693,7 @@
 			]),
 			hovertemplate:
 				`${yieldInfo.label} gained: %{customdata[0]}<br>` +
-				'Base food equivalent: %{customdata[1]}<br>' +
+				'Food with % food & growth modifier: %{customdata[1]}<br>' +
 				'Yield per raw food: %{y:.4f}<br>' +
 				'Era step: %{customdata[2]} (x%{customdata[3]})<extra></extra>',
 			connectgaps: false
@@ -773,10 +842,13 @@
 			return;
 		}
 
-		// When the citizen range changes, the data domain changes — reset the locked axis range
-		// so the next render re-autoranges to fit the new data.
+		// When the citizen range or formula constants change, the data domain changes — reset
+		// the locked axis range so the next render re-autoranges to fit the new data.
 		void minCitizen;
 		void maxCitizen;
+		void formulaBase;
+		void formulaMultiplier;
+		void formulaExponent;
 		lockedYRangeGrowth = null;
 		lockedYRangeRatio = null;
 	});
@@ -787,6 +859,8 @@
 		}
 
 		graphPoints;
+		editedGraphPoints;
+		formulaChanged;
 		activeOutputYieldTypes;
 		cityIsCapital;
 		throttledUpdate();
@@ -852,11 +926,40 @@
 			>Growth Threshold</button>
 		</div>
 
+		<section class="control-section">
+			<div class="section-heading-row">
+				<h2>Growth Formula Editor</h2>
+				{#if formulaChanged}
+					<button
+						class="secondary-button"
+						type="button"
+						onclick={() => { formulaBase = 15; formulaMultiplier = 12.0; formulaExponent = 2.22; }}
+					>Reset</button>
+				{/if}
+			</div>
+			<p class="formula-display">
+				threshold = (<span class="formula-val">{formulaBase}</span> + (pop−1) × <span class="formula-val">{formulaMultiplier.toFixed(2)}</span> + ⌊(pop−1)<sup><span class="formula-val">{formulaExponent.toFixed(3)}</span></sup>⌋) × speed%
+			</p>
+			<p class="condition-note">VP defaults: base…15, multiplier…12.0, exponent…2.22. Editing draws comparison curves on the growth graph; the ratio graph switches to the edited formula.</p>
+			<label class="field-label">
+				<span>Base threshold <span class="condition-note">(BASE_CITY_GROWTH_THRESHOLD, default 15)</span></span>
+				<input type="number" min="1" step="1" bind:value={formulaBase} />
+			</label>
+			<label class="field-label">
+				<span>Linear multiplier <span class="condition-note">(CITY_GROWTH_MULTIPLIER, default 12.0)</span></span>
+				<input type="number" min="0" step="0.5" bind:value={formulaMultiplier} />
+			</label>
+			<label class="field-label">
+				<span>Exponent <span class="condition-note">(CITY_GROWTH_EXPONENT, default 2.22)</span></span>
+				<input type="number" min="0.1" step="0.01" bind:value={formulaExponent} />
+			</label>
+		</section>
+
 		<div class="panel-intro">
 			<p class="eyebrow">Population Growth and Its Yields</p>
 			<h1>Citizen Birth Curves</h1>
 			{#if activeGraph === 'ratio'}
-				<p>Yield gained on each citizen birth divided by the base food equivalent — how much yield each raw food unit earns you.</p>
+				<p>Yield gained on each citizen birth divided by the Food with % food & growth modifier — how much yield each raw food unit earns you.</p>
 			{:else}
 				<p>Net food needed to birth each citizen after food kept from the previous growth event.</p>
 			{/if}
@@ -1529,6 +1632,22 @@
 	.condition-note {
 		font-size: 0.75rem;
 		color: rgba(250, 250, 196, 0.45);
+	}
+
+	.formula-display {
+		font-size: 0.88rem;
+		font-family: 'Tw Cen MT', monospace, sans-serif;
+		color: rgba(250, 250, 196, 0.85);
+		background: rgba(100, 100, 150, 0.15);
+		border: 1px solid rgba(207, 175, 115, 0.35);
+		padding: 0.4rem 0.6rem;
+		margin: 0;
+		line-height: 1.7;
+	}
+
+	.formula-val {
+		color: #ffc864;
+		font-weight: 600;
 	}
 
 	.dimmed {
